@@ -4,8 +4,9 @@ A small installable web app for logging weights and reps against a fixed 5-day
 workout plan (Back/Biceps, Legs, Shoulders/Abs, Chest/Triceps, Legs Optional)
 and viewing trends over time.
 
-No build step, no backend, no external dependencies — plain HTML/CSS/JS.
-All workout history is stored on-device in `localStorage`.
+No build step, no bundler — plain HTML/CSS/JS. Sign-in and data sync are
+handled by Firebase (Auth + Firestore) on its free tier; everything else is
+static files you can host anywhere.
 
 ## Features
 
@@ -14,11 +15,35 @@ All workout history is stored on-device in `localStorage`.
 - **History**: browse and edit/delete past sessions.
 - **Trends**: per-exercise chart of top-set weight or total volume over time
   (bodyweight exercises chart total reps instead).
+- **Account & sync**: sign in with email + password and your workouts sync
+  across every device you sign into. Data also caches locally (Firestore
+  offline persistence), so logging a workout with no gym wifi still works
+  instantly and syncs once you're back online.
 - **Backup**: export/import a JSON file of your full history (gear icon,
-  top right) — worth doing occasionally since data lives only on this
-  device/browser.
-- Installable to your phone's home screen (PWA) and works offline once
-  loaded.
+  top right).
+- Installable to your phone's home screen (PWA).
+
+## Cloud setup (Firebase)
+
+This app expects a Firebase project with **Authentication → Email/Password**
+enabled and a **Firestore database**. The project config lives in `cloud.js`
+(the Firebase web API key is not secret — access is enforced by the
+Firestore security rules below, not by hiding it).
+
+Firestore security rules (Firestore → Rules):
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/sessions/{sessionId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
+
+This scopes every user to only their own `users/{uid}/sessions/*` documents.
 
 ## Running locally
 
@@ -28,7 +53,8 @@ No build step needed — just serve the folder statically, e.g.:
 python3 -m http.server 8000
 ```
 
-then open `http://localhost:8000`.
+then open `http://localhost:8000`. (Sign-in requires network access to
+Firebase; everything after that first sign-in also works offline.)
 
 ## Deploying (GitHub Pages)
 

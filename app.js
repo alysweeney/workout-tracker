@@ -1,5 +1,7 @@
+import * as Cloud from './cloud.js';
+
 // ---------- Utilities ----------
-const STORAGE_KEY = 'workoutTrackerSessions_v1';
+const STORAGE_KEY = 'workoutTrackerSessions_v1'; // legacy on-device store, used only for one-time migration
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -33,32 +35,50 @@ function el(html) {
   return t.content.firstElementChild;
 }
 
-// ---------- Storage ----------
+// ---------- Storage (Firestore-backed, live cache kept in sync via onSnapshot) ----------
+let currentUser = null;
+let sessionsCache = [];
+let unsubscribeSessions = null;
+let migrationChecked = false;
+
 function loadSessions() {
+  // Copy: getAllSessionsSorted() below sorts in place, and callers shouldn't
+  // be able to mutate the live cache that onSnapshot keeps refreshing.
+  return sessionsCache.slice();
+}
+
+async function upsertSession(session) {
+  await Cloud.saveSessionCloud(currentUser.uid, session);
+}
+
+async function deleteSession(id) {
+  await Cloud.deleteSessionCloud(currentUser.uid, id);
+}
+
+// One-time offer to pull in any workouts saved locally before cloud sync existed.
+async function maybeOfferLocalMigration() {
+  if (migrationChecked) return;
+  migrationChecked = true;
+  if (localStorage.getItem('workoutTrackerMigrationOffered_v1')) return;
+  let localSessions = [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    localSessions = raw ? JSON.parse(raw) : [];
   } catch (e) {
-    console.error('Failed to load sessions', e);
-    return [];
+    localSessions = [];
   }
-}
+  localStorage.setItem('workoutTrackerMigrationOffered_v1', 'true');
+  if (!Array.isArray(localSessions) || localSessions.length === 0) return;
 
-function saveSessions(sessions) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-}
-
-function upsertSession(session) {
-  const sessions = loadSessions();
-  const idx = sessions.findIndex((s) => s.id === session.id);
-  if (idx >= 0) sessions[idx] = session;
-  else sessions.push(session);
-  saveSessions(sessions);
-}
-
-function deleteSession(id) {
-  const sessions = loadSessions().filter((s) => s.id !== id);
-  saveSessions(sessions);
+  confirmModal({
+    title: 'Import workouts from this device?',
+    body: `Found ${localSessions.length} workout${localSessions.length === 1 ? '' : 's'} saved on this device from before cloud sync. Import them into your account?`,
+    confirmLabel: 'Import',
+    onConfirm: async () => {
+      await Cloud.bulkImportCloud(currentUser.uid, localSessions);
+      showToast('Imported local workouts');
+    },
+  });
 }
 
 function findSessionByDayAndDate(dayId, date, excludeId) {
@@ -107,18 +127,53 @@ function navigate(path) {
 
 window.addEventListener('hashchange', render);
 window.addEventListener('DOMContentLoaded', () => {
-  render();
   registerServiceWorker();
 });
 
-document.getElementById('settings-btn').addEventListener('click', openSettingsModal);
+document.getElementById('settings-btn').addEventListener('click', () => {
+  if (currentUser) openSettingsModal();
+});
 
 document.querySelectorAll('.nav-btn').forEach((btn) => {
   btn.addEventListener('click', () => navigate(btn.dataset.route));
 });
 
+Cloud.onAuthChange((user) => {
+  currentUser = user;
+  if (unsubscribeSessions) {
+    unsubscribeSessions();
+    unsubscribeSessions = null;
+  }
+  sessionsCache = [];
+  migrationChecked = false;
+
+  if (user) {
+    unsubscribeSessions = Cloud.subscribeSessions(
+      user.uid,
+      (sessions) => {
+        sessionsCache = sessions;
+        maybeOfferLocalMigration();
+        render();
+      },
+      () => showToast('Could not reach the cloud database')
+    );
+  }
+  render();
+});
+
 // ---------- Render dispatch ----------
 function render() {
+  document.body.classList.toggle('signed-out', !currentUser);
+
+  if (!currentUser) {
+    const app = document.getElementById('app');
+    const title = document.getElementById('topbar-title');
+    title.textContent = 'Workout Tracker';
+    app.innerHTML = '';
+    app.appendChild(renderAuthGate());
+    return;
+  }
+
   const { name, params } = getRoute();
   document.querySelectorAll('.nav-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.route === (name === 'log' ? 'log' : name));
@@ -146,6 +201,74 @@ function render() {
     title.textContent = 'Workout Tracker';
     app.appendChild(renderLogHome());
   }
+}
+
+// ---------- Auth Gate ----------
+function renderAuthGate() {
+  const state = { mode: 'signin' };
+
+  const wrap = el(`
+    <div style="max-width:360px; margin: 32px auto 0;">
+      <div class="card">
+        <h2 id="auth-heading" style="margin-top:0;">Sign in</h2>
+        <p style="color:var(--muted); font-size:14px; margin-top:-8px;">Your workouts sync to this account across devices.</p>
+        <form id="auth-form">
+          <div style="display:flex; flex-direction:column; gap:10px; margin:14px 0;">
+            <input type="email" id="auth-email" placeholder="Email" autocomplete="email" required
+              style="border:1px solid var(--border); background:var(--bg); color:var(--text); border-radius:8px; padding:11px 12px; font-size:15px; font-family:inherit;" />
+            <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password" required minlength="6"
+              style="border:1px solid var(--border); background:var(--bg); color:var(--text); border-radius:8px; padding:11px 12px; font-size:15px; font-family:inherit;" />
+          </div>
+          <div id="auth-error" style="color:var(--danger); font-size:13px; margin-bottom:10px; display:none;"></div>
+          <button type="submit" class="btn btn-primary btn-block" id="auth-submit">Sign In</button>
+        </form>
+        <button type="button" id="auth-toggle" class="btn btn-secondary btn-block" style="margin-top:10px;">New here? Create an account</button>
+      </div>
+    </div>
+  `);
+
+  const heading = wrap.querySelector('#auth-heading');
+  const submitBtn = wrap.querySelector('#auth-submit');
+  const toggleBtn = wrap.querySelector('#auth-toggle');
+  const errorBox = wrap.querySelector('#auth-error');
+
+  function applyMode() {
+    const isSignIn = state.mode === 'signin';
+    heading.textContent = isSignIn ? 'Sign in' : 'Create your account';
+    submitBtn.textContent = isSignIn ? 'Sign In' : 'Create Account';
+    toggleBtn.textContent = isSignIn ? "New here? Create an account" : 'Already have an account? Sign in';
+    errorBox.style.display = 'none';
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    state.mode = state.mode === 'signin' ? 'signup' : 'signin';
+    applyMode();
+  });
+
+  wrap.querySelector('#auth-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = wrap.querySelector('#auth-email').value.trim();
+    const password = wrap.querySelector('#auth-password').value;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Please wait...';
+    errorBox.style.display = 'none';
+    try {
+      if (state.mode === 'signin') {
+        await Cloud.signIn(email, password);
+      } else {
+        await Cloud.signUp(email, password);
+      }
+      // onAuthChange fires render() once signed in.
+    } catch (err) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = state.mode === 'signin' ? 'Sign In' : 'Create Account';
+      errorBox.textContent = Cloud.authErrorMessage(err);
+      errorBox.style.display = 'block';
+    }
+  });
+
+  applyMode();
+  return wrap;
 }
 
 // ---------- Log Home ----------
@@ -282,7 +405,9 @@ function renderLogForm(dayId, sessionId) {
         confirmLabel: 'Delete',
         danger: true,
         onConfirm: () => {
-          if (existing) deleteSession(existing.id);
+          // Don't await: Firestore applies this to the local cache instantly and
+          // syncs in the background, so the UI shouldn't block waiting on the network.
+          if (existing) deleteSession(existing.id).catch(() => showToast('Could not delete -- will retry when back online'));
           navigate('history');
           showToast('Session deleted');
         },
@@ -308,10 +433,17 @@ function renderLogForm(dayId, sessionId) {
       }
     });
 
-    // Drop exercises that ended up with no actual sets filled in.
+    // Drop exercises with no sets filled in, and densify sparse arrays (e.g. only
+    // set 3 filled in) into explicit nulls -- Firestore rejects `undefined` values,
+    // and a hole reads back as undefined outside of hole-skipping array methods.
     const entries = {};
     Object.keys(rawEntries).forEach((k) => {
-      if (rawEntries[k].some((s) => s)) entries[k] = rawEntries[k];
+      const sparse = rawEntries[k];
+      if (sparse.some((s) => s)) {
+        const dense = [];
+        for (let i = 0; i < sparse.length; i++) dense.push(sparse[i] || null);
+        entries[k] = dense;
+      }
     });
 
     const hasData = Object.keys(entries).length > 0;
@@ -328,7 +460,9 @@ function renderLogForm(dayId, sessionId) {
       entries,
       updatedAt: new Date().toISOString(),
     };
-    upsertSession(session);
+    // Don't await: Firestore applies this to the local cache instantly and
+    // syncs in the background, so the UI shouldn't block waiting on the network.
+    upsertSession(session).catch(() => showToast('Could not save -- will retry when back online'));
     showToast('Workout saved');
     navigate('log');
   }
@@ -338,6 +472,10 @@ function renderLogForm(dayId, sessionId) {
 
 function escapeAttr(str) {
   return str.replace(/"/g, '&quot;');
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ---------- History ----------
@@ -592,13 +730,14 @@ function openSettingsModal() {
   const backdrop = el(`
     <div class="modal-backdrop">
       <div class="modal-sheet">
-        <h3>Backup & Restore</h3>
-        <p>Your data is stored only on this device. Export a backup now and then to avoid losing your history if you clear your browser or switch phones.</p>
+        <h3>Account & Backup</h3>
+        <p>Signed in as ${escapeHtml(currentUser.email || '')}. Your workouts sync automatically across any device you sign into.</p>
         <div class="modal-actions">
           <button class="btn btn-primary" id="export-btn">Export backup (${sessions.length} sessions)</button>
           <label class="btn btn-secondary" for="import-file" style="text-align:center;">Import backup</label>
           <input type="file" id="import-file" accept="application/json" style="display:none;" />
           <button class="btn btn-danger" id="clear-btn">Delete all data</button>
+          <button class="btn btn-secondary" id="signout-btn">Sign out</button>
           <button class="btn btn-secondary" id="modal-close">Close</button>
         </div>
       </div>
@@ -626,18 +765,13 @@ function openSettingsModal() {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const parsed = JSON.parse(reader.result);
         const imported = Array.isArray(parsed) ? parsed : parsed.sessions;
-        if (!Array.isArray(imported)) throw new Error('Invalid file');
-        const existing = loadSessions();
-        const byId = {};
-        existing.forEach((s) => (byId[s.id] = s));
-        imported.forEach((s) => (byId[s.id] = s));
-        saveSessions(Object.values(byId));
+        if (!Array.isArray(imported) || imported.some((s) => !s || !s.id)) throw new Error('Invalid file');
+        await Cloud.bulkImportCloud(currentUser.uid, imported);
         root.innerHTML = '';
-        render();
         showToast(`Imported ${imported.length} sessions`);
       } catch (err) {
         showToast('Could not read that file');
@@ -649,16 +783,20 @@ function openSettingsModal() {
   backdrop.querySelector('#clear-btn').addEventListener('click', () => {
     confirmModal({
       title: 'Delete all data?',
-      body: 'This permanently erases every logged workout on this device. Export a backup first if you want to keep it.',
+      body: 'This permanently erases every logged workout in your account, on every device. Export a backup first if you want to keep it.',
       confirmLabel: 'Delete everything',
       danger: true,
-      onConfirm: () => {
-        saveSessions([]);
+      onConfirm: async () => {
+        await Cloud.bulkDeleteCloud(currentUser.uid, sessions);
         root.innerHTML = '';
-        render();
         showToast('All data deleted');
       },
     });
+  });
+
+  backdrop.querySelector('#signout-btn').addEventListener('click', () => {
+    root.innerHTML = '';
+    Cloud.signOutUser();
   });
 
   root.innerHTML = '';

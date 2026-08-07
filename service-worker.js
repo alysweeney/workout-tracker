@@ -1,9 +1,10 @@
-const CACHE_NAME = 'workout-tracker-v1';
+const CACHE_NAME = 'workout-tracker-v2';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './cloud.js',
   './data.js',
   './manifest.json',
   './icons/icon-192.png',
@@ -26,6 +27,10 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  // Only manage the app's own files. Firebase/Firestore/gstatic requests
+  // (auth, sync, SDK CDN) must go straight to the network unintercepted --
+  // Firestore's live connections and offline queue manage themselves.
+  if (new URL(event.request.url).origin !== self.location.origin) return;
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const fetchPromise = fetch(event.request)

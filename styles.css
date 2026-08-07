@@ -61,6 +61,11 @@ body {
   font-weight: 700;
 }
 
+body.signed-out .bottomnav,
+body.signed-out #settings-btn {
+  display: none;
+}
+
 .icon-btn {
   background: none;
   border: none;
