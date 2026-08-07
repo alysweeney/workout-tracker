@@ -83,6 +83,7 @@ body.signed-out #settings-btn {
 .icon-btn {
   background: none;
   border: none;
+  font-family: inherit;
   font-size: 19px;
   cursor: pointer;
   padding: 6px 8px;
@@ -126,6 +127,7 @@ body.signed-out #settings-btn {
   flex: 1;
   background: none;
   border: none;
+  font-family: inherit;
   padding: 9px 4px 8px;
   display: flex;
   flex-direction: column;
@@ -251,6 +253,7 @@ h3 { font-family: var(--font-display); font-size: 17px; margin: 0 0 4px; font-we
 .back-btn {
   background: none;
   border: none;
+  font-family: inherit;
   color: var(--accent);
   font-size: 15px;
   font-weight: 600;
@@ -537,6 +540,7 @@ select {
   border-radius: 8px;
   border: none;
   background: transparent;
+  font-family: inherit;
   color: var(--muted);
   font-size: 13px;
   font-weight: 600;
