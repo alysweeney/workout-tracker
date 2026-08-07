@@ -2,7 +2,6 @@
 // Each exercise: { name, sets, reps, unit: 'lbs'|'bodyweight', perSide: bool }
 
 const CARDIO_WARMUP_NOTE = '7–10 min on the StairMaster, spin bike, or incline treadmill walk (8% incline)';
-const COOLDOWN_NOTE = 'Spend at least 5 minutes stretching to help with recovery and injury prevention.';
 
 const UPPER_BODY_WARMUP_STRETCHES = ['Forward arm circles — 2×10 each side', 'Backward arm circles — 2×10 each side'];
 const LEG_WARMUP_STRETCHES = [
@@ -13,7 +12,49 @@ const LEG_WARMUP_STRETCHES = [
   'Body weight squats — 2×10',
 ];
 
-const CARDIO_META = { id: 'cardio', name: 'Cardio', icon: '🏃', color: '#0ea5e9' };
+// ~5 min of static stretching targeting the muscles just trained, held ~20-30 sec each.
+const BACK_BICEPS_COOLDOWN = {
+  target: 'lats, mid-back, biceps',
+  stretches: [
+    "Child's pose — 30 sec",
+    'Cat-cow — 8 slow reps',
+    'Cross-body bicep stretch — 20 sec each arm',
+    'Standing forward fold — 30 sec',
+    'Seated spinal twist — 20 sec each side',
+  ],
+};
+const LEGS_COOLDOWN = {
+  target: 'quads, hamstrings, calves, glutes',
+  stretches: [
+    'Standing quad stretch — 20 sec each leg',
+    'Seated forward fold (hamstrings) — 30 sec',
+    'Wall calf stretch — 20 sec each leg',
+    'Figure-4 glute stretch — 20 sec each leg',
+    'Butterfly stretch (inner thigh) — 30 sec',
+  ],
+};
+const SHOULDERS_ABS_COOLDOWN = {
+  target: 'shoulders, delts, abs/core',
+  stretches: [
+    'Cross-body shoulder stretch — 20 sec each arm',
+    'Overhead triceps/shoulder stretch — 20 sec each arm',
+    'Cobra stretch (abs) — 30 sec',
+    "Child's pose (shoulders) — 30 sec",
+    'Seated spinal twist (obliques) — 20 sec each side',
+  ],
+};
+const CHEST_TRICEPS_COOLDOWN = {
+  target: 'chest, triceps, shoulders',
+  stretches: [
+    'Doorway chest stretch — 30 sec',
+    'Overhead triceps stretch — 20 sec each arm',
+    'Cross-body shoulder stretch — 20 sec each arm',
+    'Cat-cow — 8 slow reps',
+    "Child's pose — 30 sec",
+  ],
+};
+
+const CARDIO_META = { id: 'cardio', name: 'Cardio', icon: '🏃', color: '#a0653a' };
 const CARDIO_ACTIVITIES = ['Incline Treadmill Walk', 'StairMaster', 'Spin Bike', 'Elliptical', 'Outdoor Run/Walk', 'Other'];
 
 const WORKOUT_PLAN = [
@@ -21,9 +62,9 @@ const WORKOUT_PLAN = [
     id: 'back-biceps',
     name: 'Back / Biceps',
     icon: '💪',
-    color: '#6d63f0',
+    color: '#8c3a4a',
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: UPPER_BODY_WARMUP_STRETCHES },
-    cooldown: COOLDOWN_NOTE,
+    cooldown: BACK_BICEPS_COOLDOWN,
     exercises: [
       { name: 'Lat Machine Wide Grip Pulldown', sets: 3, reps: 10, unit: 'lbs' },
       { name: 'Cable Seated Row', sets: 3, reps: 10, unit: 'lbs' },
@@ -40,9 +81,9 @@ const WORKOUT_PLAN = [
     id: 'legs',
     name: 'Legs',
     icon: '🦵',
-    color: '#16a34a',
+    color: '#6b7d4f',
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: LEG_WARMUP_STRETCHES },
-    cooldown: COOLDOWN_NOTE,
+    cooldown: LEGS_COOLDOWN,
     exercises: [
       { name: 'Dumbbell Squat', sets: 3, reps: 10, unit: 'lbs' },
       { name: 'Dumbbell Reverse Lunge', sets: 3, reps: 10, unit: 'lbs', perSide: true },
@@ -59,9 +100,9 @@ const WORKOUT_PLAN = [
     id: 'shoulders-abs',
     name: 'Shoulders / Abs',
     icon: '🎯',
-    color: '#d97706',
+    color: '#d2691e',
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: UPPER_BODY_WARMUP_STRETCHES },
-    cooldown: COOLDOWN_NOTE,
+    cooldown: SHOULDERS_ABS_COOLDOWN,
     exercises: [
       { name: 'Dumbbell Seated Shoulder Press', sets: 3, reps: 10, unit: 'lbs' },
       { name: 'Dumbbell Single Arm Lateral Raise', sets: 3, reps: 10, unit: 'lbs', perSide: true },
@@ -78,9 +119,9 @@ const WORKOUT_PLAN = [
     id: 'chest-triceps',
     name: 'Chest / Triceps',
     icon: '🔥',
-    color: '#e11d48',
+    color: '#b5482f',
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: UPPER_BODY_WARMUP_STRETCHES },
-    cooldown: COOLDOWN_NOTE,
+    cooldown: CHEST_TRICEPS_COOLDOWN,
     exercises: [
       { name: 'Dumbbell Bench Press', sets: 3, reps: 10, unit: 'lbs' },
       { name: 'Bench Dip', sets: 3, reps: 10, unit: 'bodyweight' },
@@ -96,9 +137,9 @@ const WORKOUT_PLAN = [
     id: 'legs-optional',
     name: 'Legs (Optional)',
     icon: '⭐',
-    color: '#0891b2',
+    color: '#c48a1f',
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: LEG_WARMUP_STRETCHES },
-    cooldown: COOLDOWN_NOTE,
+    cooldown: LEGS_COOLDOWN,
     exercises: [
       { name: 'Dumbbell Front Squat', sets: 3, reps: 10, unit: 'lbs' },
       { name: 'Dumbbell Deadlift', sets: 3, reps: 10, unit: 'lbs' },

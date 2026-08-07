@@ -448,7 +448,11 @@ function renderLogForm(dayId, sessionId) {
     const savedCooldown = (activeSession && activeSession.cooldown) || {};
     const cooldownCard = el('<div class="card info-card"></div>');
     cooldownCard.appendChild(el('<div class="info-card-title">🧘 Cool-down</div>'));
-    cooldownCard.appendChild(checklistItem(day.cooldown, !!savedCooldown.done, 'cooldown-done'));
+    cooldownCard.appendChild(el(`<div class="exercise-target" style="margin:-4px 0 10px;">~5 min · targets ${day.cooldown.target}</div>`));
+    day.cooldown.stretches.forEach((label, idx) => {
+      const done = !!(savedCooldown.stretches && savedCooldown.stretches[idx]);
+      cooldownCard.appendChild(checklistItem(label, done, `cooldown-stretch-${idx}`));
+    });
     formHost.appendChild(cooldownCard);
 
     formHost.appendChild(saveBar);
@@ -527,7 +531,11 @@ function renderLogForm(dayId, sessionId) {
       const cb = formHost.querySelector(`#warmup-stretch-${idx}`);
       stretches[idx] = cb ? cb.checked : false;
     });
-    const cooldownDoneEl = formHost.querySelector('#cooldown-done');
+    const cooldownStretches = {};
+    day.cooldown.stretches.forEach((_, idx) => {
+      const cb = formHost.querySelector(`#cooldown-stretch-${idx}`);
+      cooldownStretches[idx] = cb ? cb.checked : false;
+    });
 
     const current = findSessionByDayAndDate(dayId, state.date, null) || existing;
     const session = {
@@ -540,7 +548,7 @@ function renderLogForm(dayId, sessionId) {
         cardioMinutes: cardioMinutesRaw !== '' ? parseInt(cardioMinutesRaw, 10) : null,
         stretches,
       },
-      cooldown: { done: cooldownDoneEl ? cooldownDoneEl.checked : false },
+      cooldown: { stretches: cooldownStretches },
       updatedAt: new Date().toISOString(),
     };
     // Don't await: Firestore applies this to the local cache instantly and
@@ -864,7 +872,7 @@ function renderTrends(selectedExercise) {
 }
 
 function buildChart(points, metricKey, isBodyweight, color) {
-  const lineColor = color || '#6d63f0';
+  const lineColor = color || '#c1622c';
   const w = 300;
   const h = 160;
   const padL = 34;
@@ -903,7 +911,7 @@ function buildChart(points, metricKey, isBodyweight, color) {
   line.setAttribute('x2', w - padR);
   line.setAttribute('y1', h - padB);
   line.setAttribute('y2', h - padB);
-  line.setAttribute('stroke', '#8888a0');
+  line.setAttribute('stroke', '#9c8776');
   line.setAttribute('stroke-width', '1');
   line.setAttribute('opacity', '0.3');
   svg.appendChild(line);
@@ -914,7 +922,7 @@ function buildChart(points, metricKey, isBodyweight, color) {
     text.setAttribute('x', 2);
     text.setAttribute('y', y + 4);
     text.setAttribute('font-size', '9');
-    text.setAttribute('fill', '#8888a0');
+    text.setAttribute('fill', '#9c8776');
     text.textContent = Math.round(v);
     svg.appendChild(text);
   });
@@ -941,7 +949,7 @@ function buildChart(points, metricKey, isBodyweight, color) {
       label.setAttribute('x', d.x);
       label.setAttribute('y', h - padB + 14);
       label.setAttribute('font-size', '8');
-      label.setAttribute('fill', '#8888a0');
+      label.setAttribute('fill', '#9c8776');
       label.setAttribute('text-anchor', i === 0 ? 'start' : i === dots.length - 1 ? 'end' : 'middle');
       label.textContent = formatDateShort(d.date);
       svg.appendChild(label);
