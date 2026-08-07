@@ -462,7 +462,36 @@ h3 { font-family: var(--font-display); font-size: 17px; margin: 0 0 4px; font-we
   opacity: 0.7;
 }
 
+.session-row {
+  position: relative;
+  border-radius: var(--radius);
+  /* clips the delete layer to the row's rounded corners as it's revealed */
+  overflow: hidden;
+}
+
+.session-delete-action {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  background: var(--danger);
+}
+
+.session-delete-action button {
+  border: none;
+  background: none;
+  font-family: inherit;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 0 22px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 .session-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -476,8 +505,10 @@ h3 { font-family: var(--font-display); font-size: 17px; margin: 0 0 4px; font-we
   color: inherit;
   text-align: left;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.12s ease;
   border-left: 3px solid color-mix(in srgb, var(--day-color, var(--accent)) 55%, transparent);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .session-item:active { transform: scale(0.985); }

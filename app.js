@@ -708,43 +708,133 @@ function escapeHtml(str) {
 }
 
 // ---------- History ----------
+// Swipe-left-to-reveal-delete for a row, using pointer events so it works
+// for both touch and mouse. Only one row stays open at a time.
+let openSwipeRowCloser = null;
+const SWIPE_REVEAL_PX = 84;
+
+function setupSwipeRow(itemEl, { onTap, onDelete }) {
+  let startX = 0;
+  let startY = 0;
+  let baseX = 0;
+  let dx = 0;
+  let dragging = false;
+  let axis = null; // 'h' | 'v' | null
+  let isOpen = false;
+
+  function apply(x, animate) {
+    itemEl.style.transition = animate ? 'transform 0.2s ease' : 'none';
+    itemEl.style.transform = x ? `translateX(${x}px)` : '';
+  }
+  function close(animate = true) {
+    apply(0, animate);
+    isOpen = false;
+    if (openSwipeRowCloser === close) openSwipeRowCloser = null;
+  }
+  function open(animate = true) {
+    if (openSwipeRowCloser && openSwipeRowCloser !== close) openSwipeRowCloser();
+    apply(-SWIPE_REVEAL_PX, animate);
+    isOpen = true;
+    openSwipeRowCloser = close;
+  }
+
+  itemEl.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    startX = e.clientX;
+    startY = e.clientY;
+    baseX = isOpen ? -SWIPE_REVEAL_PX : 0;
+    dragging = false;
+    axis = null;
+    itemEl.setPointerCapture(e.pointerId);
+  });
+
+  itemEl.addEventListener('pointermove', (e) => {
+    const mdx = e.clientX - startX;
+    const mdy = e.clientY - startY;
+    if (axis === null) {
+      if (Math.abs(mdx) < 6 && Math.abs(mdy) < 6) return;
+      axis = Math.abs(mdx) > Math.abs(mdy) ? 'h' : 'v';
+    }
+    if (axis === 'v') return;
+    dragging = true;
+    dx = Math.max(-SWIPE_REVEAL_PX, Math.min(0, baseX + mdx));
+    apply(dx, false);
+  });
+
+  itemEl.addEventListener('pointerup', () => {
+    if (axis === 'h' && dragging) {
+      if (dx < -SWIPE_REVEAL_PX / 2) open();
+      else close();
+    } else if (axis !== 'v') {
+      // Minimal movement -- treat as a tap.
+      if (isOpen) close();
+      else onTap();
+    }
+    dragging = false;
+    axis = null;
+  });
+
+  itemEl.addEventListener('pointercancel', () => {
+    close();
+    dragging = false;
+    axis = null;
+  });
+
+  onDelete();
+}
+
 function renderHistoryList() {
+  openSwipeRowCloser = null;
   const sessions = getAllSessionsSorted();
   if (sessions.length === 0) {
     return el('<div class="empty-state"><span class="empty-icon">📅</span>No workouts logged yet.<br/>Head to the Log tab to record your first session.</div>');
   }
   const wrap = el('<div class="session-list"></div>');
   sessions.forEach((s) => {
-    if (s.type === 'cardio') {
-      const item = el(`
-        <button class="session-item" style="--day-color:${CARDIO_META.color}">
-          <div class="day-icon-badge">${CARDIO_META.icon}</div>
-          <div class="session-body">
-            <h3>Cardio</h3>
-            <div class="meta">${formatDate(s.date)} · ${s.activity} · ${s.minutes} min</div>
-          </div>
-          <div class="chevron">›</div>
-        </button>
-      `);
-      item.addEventListener('click', () => navigate(`cardio/${s.id}`));
-      wrap.appendChild(item);
-      return;
-    }
+    const isCardio = s.type === 'cardio';
+    const day = isCardio ? null : dayById(s.dayId);
+    const color = isCardio ? CARDIO_META.color : day ? day.color : null;
+    const icon = isCardio ? CARDIO_META.icon : day ? day.icon : '🏋️';
+    const title = isCardio ? 'Cardio' : day ? day.name : 'Workout';
+    const meta = isCardio
+      ? `${formatDate(s.date)} · ${s.activity} · ${s.minutes} min`
+      : `${formatDate(s.date)} · ${Object.keys(s.entries || {}).length} exercises logged`;
 
-    const day = dayById(s.dayId);
-    const exCount = Object.keys(s.entries || {}).length;
+    const row = el('<div class="session-row"></div>');
+    row.appendChild(el(`
+      <div class="session-delete-action"><button type="button" class="session-delete-btn">🗑️ Delete</button></div>
+    `));
     const item = el(`
-      <button class="session-item"${day ? ` style="--day-color:${day.color}"` : ''}>
-        <div class="day-icon-badge">${day ? day.icon : '🏋️'}</div>
+      <button class="session-item"${color ? ` style="--day-color:${color}"` : ''}>
+        <div class="day-icon-badge">${icon}</div>
         <div class="session-body">
-          <h3>${day ? day.name : 'Workout'}</h3>
-          <div class="meta">${formatDate(s.date)} · ${exCount} exercises logged</div>
+          <h3>${title}</h3>
+          <div class="meta">${meta}</div>
         </div>
         <div class="chevron">›</div>
       </button>
     `);
-    item.addEventListener('click', () => navigate(`log/${s.dayId}/${s.id}`));
-    wrap.appendChild(item);
+    row.appendChild(item);
+
+    setupSwipeRow(item, {
+      onTap: () => navigate(isCardio ? `cardio/${s.id}` : `log/${s.dayId}/${s.id}`),
+      onDelete: () => {
+        row.querySelector('.session-delete-btn').addEventListener('click', () => {
+          confirmModal({
+            title: 'Delete this workout?',
+            body: "This removes the logged session. This can't be undone.",
+            confirmLabel: 'Delete',
+            danger: true,
+            onConfirm: () => {
+              deleteSession(s.id).catch(() => showToast('Could not delete -- will retry when back online'));
+              showToast('Session deleted');
+            },
+          });
+        });
+      },
+    });
+
+    wrap.appendChild(row);
   });
   return wrap;
 }

@@ -80,7 +80,7 @@ const WORKOUT_PLAN = [
   {
     id: 'legs',
     name: 'Legs',
-    icon: '🧦',
+    icon: '🎃',
     color: '#6b7d4f',
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: LEG_WARMUP_STRETCHES },
     cooldown: LEGS_COOLDOWN,
@@ -99,7 +99,7 @@ const WORKOUT_PLAN = [
   {
     id: 'shoulders-abs',
     name: 'Shoulders / Abs',
-    icon: '🥧',
+    icon: '☕',
     color: '#d2691e',
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: UPPER_BODY_WARMUP_STRETCHES },
     cooldown: SHOULDERS_ABS_COOLDOWN,
