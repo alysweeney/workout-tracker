@@ -111,18 +111,18 @@ function getAllSessionsSorted() {
   return loadSessions().sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
-function getCardioSessions() {
+function getSessionsByType(type) {
   return loadSessions()
-    .filter((s) => s.type === 'cardio')
+    .filter((s) => s.type === type)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
-function findCardioSessionByDate(date, excludeId) {
-  return loadSessions().find((s) => s.type === 'cardio' && s.date === date && s.id !== excludeId);
+function findSessionByTypeAndDate(type, date, excludeId) {
+  return loadSessions().find((s) => s.type === type && s.date === date && s.id !== excludeId);
 }
 
-function getLastCardioSession() {
-  return getCardioSessions()[0] || null;
+function getLastSessionByType(type) {
+  return getSessionsByType(type)[0] || null;
 }
 
 function getExerciseIndex() {
@@ -198,7 +198,7 @@ function render() {
 
   const { name, params } = getRoute();
   document.querySelectorAll('.nav-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.route === (name === 'log' || name === 'cardio' ? 'log' : name));
+    btn.classList.toggle('active', btn.dataset.route === (name === 'log' || ACTIVITY_TYPES[name] ? 'log' : name));
   });
 
   const app = document.getElementById('app');
@@ -216,9 +216,9 @@ function render() {
   } else if (name === 'history' && params.length === 0) {
     title.textContent = 'History';
     app.appendChild(renderHistoryList());
-  } else if (name === 'cardio') {
-    title.textContent = 'Cardio';
-    app.appendChild(renderCardioForm(params[0] || null));
+  } else if (ACTIVITY_TYPES[name]) {
+    title.textContent = ACTIVITY_TYPES[name].meta.name;
+    app.appendChild(renderActivityForm(name, params[0] || null));
   } else if (name === 'trends') {
     title.textContent = 'Trends';
     app.appendChild(renderTrends(params[0] || null));
@@ -298,6 +298,9 @@ function renderAuthGate() {
 
 // ---------- Log Home ----------
 function renderLogHome() {
+  const outer = el('<div></div>');
+  outer.appendChild(renderStatsCard());
+
   const wrap = el('<div class="day-list"></div>');
   WORKOUT_PLAN.forEach((day) => {
     const last = getLastSessionForDay(day.id);
@@ -317,24 +320,82 @@ function renderLogHome() {
     wrap.appendChild(card);
   });
 
-  const lastCardio = getLastCardioSession();
-  const cardioText = lastCardio
-    ? `Last logged ${formatDateShort(lastCardio.date)} · ${lastCardio.minutes} min`
-    : 'Any day -- log cardio separately from your lifting days';
-  const cardioCard = el(`
-    <button class="day-card" style="--day-color:${CARDIO_META.color}">
-      <div class="day-icon-badge">${CARDIO_META.icon}</div>
-      <div class="day-body">
-        <h3>Cardio</h3>
-        <div class="last-logged">${cardioText}</div>
-      </div>
-      <div class="chevron">›</div>
-    </button>
-  `);
-  cardioCard.addEventListener('click', () => navigate('cardio'));
-  wrap.appendChild(cardioCard);
+  Object.keys(ACTIVITY_TYPES).forEach((type) => {
+    const { meta } = ACTIVITY_TYPES[type];
+    const last = getLastSessionByType(type);
+    const lastText = last
+      ? `Last logged ${formatDateShort(last.date)} · ${last.activity} · ${last.minutes} min`
+      : `Any day -- log ${meta.name.toLowerCase()} separately from your lifting days`;
+    const card = el(`
+      <button class="day-card" style="--day-color:${meta.color}">
+        <div class="day-icon-badge">${meta.icon}</div>
+        <div class="day-body">
+          <h3>${meta.name}</h3>
+          <div class="last-logged">${lastText}</div>
+        </div>
+        <div class="chevron">›</div>
+      </button>
+    `);
+    card.addEventListener('click', () => navigate(type));
+    wrap.appendChild(card);
+  });
 
-  return wrap;
+  outer.appendChild(wrap);
+  return outer;
+}
+
+function toDateStr(d) {
+  const tz = d.getTimezoneOffset() * 60000;
+  return new Date(d - tz).toISOString().slice(0, 10);
+}
+
+function computeActivityStats(sessions) {
+  const today = new Date();
+  const todayS = todayStr();
+
+  const dow = today.getDay(); // 0=Sun..6=Sat
+  const mondayOffset = dow === 0 ? 6 : dow - 1;
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - mondayOffset);
+  const weekStartS = toDateStr(weekStart);
+
+  const monthStartS = todayS.slice(0, 7) + '-01';
+
+  const thisWeek = sessions.filter((s) => s.date >= weekStartS && s.date <= todayS).length;
+  const thisMonth = sessions.filter((s) => s.date >= monthStartS && s.date <= todayS).length;
+
+  const loggedDates = new Set(sessions.map((s) => s.date));
+  let streak = 0;
+  const cursor = new Date(today);
+  if (!loggedDates.has(todayS)) cursor.setDate(cursor.getDate() - 1);
+  while (loggedDates.has(toDateStr(cursor))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return { thisWeek, thisMonth, streak };
+}
+
+function renderStatsCard() {
+  const { thisWeek, thisMonth, streak } = computeActivityStats(getAllSessionsSorted());
+  return el(`
+    <div class="card stats-card">
+      <div class="stats-row">
+        <div class="stat-tile">
+          <div class="stat-value">${thisWeek}</div>
+          <div class="stat-label">This week</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-value">${thisMonth}</div>
+          <div class="stat-label">This month</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-value">${streak > 0 ? '🔥 ' : ''}${streak}</div>
+          <div class="stat-label">Day streak</div>
+        </div>
+      </div>
+    </div>
+  `);
 }
 
 // ---------- Log Form ----------
@@ -562,16 +623,17 @@ function renderLogForm(dayId, sessionId) {
 }
 
 // ---------- Cardio Form ----------
-function renderCardioForm(sessionId) {
-  const wrap = el(`<div style="--day-color:${CARDIO_META.color}"></div>`);
+function renderActivityForm(type, sessionId) {
+  const { meta, options, optionLabel, saveLabel } = ACTIVITY_TYPES[type];
+  const wrap = el(`<div style="--day-color:${meta.color}"></div>`);
   const backRow = el(`<div class="back-row"><button class="back-btn">‹ All days</button></div>`);
   backRow.querySelector('.back-btn').addEventListener('click', () => navigate('log'));
   wrap.appendChild(backRow);
 
   let existing = sessionId ? loadSessions().find((s) => s.id === sessionId) : null;
   if (!existing && !sessionId) {
-    // No explicit session requested -- if today already has a cardio entry, edit that instead of creating a duplicate.
-    existing = findCardioSessionByDate(todayStr(), null);
+    // No explicit session requested -- if today already has an entry of this type, edit that instead of creating a duplicate.
+    existing = findSessionByTypeAndDate(type, todayStr(), null);
   }
   const initialDate = existing ? existing.date : todayStr();
   const state = { date: initialDate };
@@ -579,7 +641,7 @@ function renderCardioForm(sessionId) {
   const dateRow = el(`
     <div class="date-row">
       <input type="date" id="session-date" value="${state.date}" max="${todayStr()}" />
-      ${existing ? '<span class="pill">Editing saved cardio</span>' : ''}
+      ${existing ? `<span class="pill">Editing saved ${meta.name.toLowerCase()}</span>` : ''}
     </div>
   `);
   wrap.appendChild(dateRow);
@@ -589,24 +651,24 @@ function renderCardioForm(sessionId) {
 
   const saveBar = el(`
     <div class="save-bar">
-      <button class="btn btn-primary btn-block" id="save-cardio-btn">Save Cardio</button>
-      ${existing ? '<button class="btn btn-danger btn-block" id="delete-cardio-btn" style="margin-top:8px;">Delete this session</button>' : ''}
+      <button class="btn btn-primary btn-block" id="save-activity-btn">${saveLabel}</button>
+      ${existing ? '<button class="btn btn-danger btn-block" id="delete-activity-btn" style="margin-top:8px;">Delete this session</button>' : ''}
     </div>
   `);
 
   function buildForm(date) {
     formHost.innerHTML = '';
-    const activeSession = findCardioSessionByDate(date, null) || existing;
-    const prevSession = getCardioSessions().find((s) => s.date <= date && s.id !== (activeSession ? activeSession.id : null));
+    const activeSession = findSessionByTypeAndDate(type, date, null) || existing;
+    const prevSession = getSessionsByType(type).find((s) => s.date <= date && s.id !== (activeSession ? activeSession.id : null));
 
     const card = el('<div class="card"></div>');
 
-    const activityField = el('<div class="field-group"><label>Activity</label></div>');
-    const activitySelect = el('<select id="cardio-activity"></select>');
-    CARDIO_ACTIVITIES.forEach((act) => {
-      const opt = el(`<option value="${escapeAttr(act)}">${act}</option>`);
-      if (activeSession ? activeSession.activity === act : act === 'Incline Treadmill Walk') opt.selected = true;
-      activitySelect.appendChild(opt);
+    const activityField = el(`<div class="field-group"><label>${optionLabel}</label></div>`);
+    const activitySelect = el('<select id="activity-option"></select>');
+    options.forEach((opt) => {
+      const optEl = el(`<option value="${escapeAttr(opt)}">${opt}</option>`);
+      if (activeSession ? activeSession.activity === opt : opt === options[0]) optEl.selected = true;
+      activitySelect.appendChild(optEl);
     });
     activitySelect.style.marginBottom = '0';
     activityField.appendChild(activitySelect);
@@ -615,7 +677,7 @@ function renderCardioForm(sessionId) {
     const minutesField = el(`
       <div class="field-group">
         <label>Duration</label>
-        <input type="number" inputmode="numeric" id="cardio-minutes" placeholder="${prevSession ? prevSession.minutes + ' min' : 'e.g. 10'}" value="${activeSession ? activeSession.minutes : ''}" />
+        <input type="number" inputmode="numeric" id="activity-minutes" placeholder="${prevSession ? prevSession.minutes + ' min' : 'e.g. 10'}" value="${activeSession ? activeSession.minutes : ''}" />
       </div>
     `);
     card.appendChild(minutesField);
@@ -623,7 +685,7 @@ function renderCardioForm(sessionId) {
     const notesField = el(`
       <div class="field-group" style="margin-bottom:0;">
         <label>Notes (optional)</label>
-        <input type="text" id="cardio-notes" placeholder="incline, speed, distance..." value="${activeSession && activeSession.notes ? escapeAttr(activeSession.notes) : ''}" />
+        <input type="text" id="activity-notes" placeholder="${type === 'class' ? 'studio, instructor...' : 'incline, speed, distance...'}" value="${activeSession && activeSession.notes ? escapeAttr(activeSession.notes) : ''}" />
       </div>
     `);
     card.appendChild(notesField);
@@ -636,16 +698,16 @@ function renderCardioForm(sessionId) {
 
   dateRow.querySelector('#session-date').addEventListener('change', (e) => {
     state.date = e.target.value;
-    existing = findCardioSessionByDate(state.date, null);
+    existing = findSessionByTypeAndDate(type, state.date, null);
     buildForm(state.date);
   });
 
   wrap.addEventListener('click', (e) => {
-    if (e.target.id === 'save-cardio-btn') {
-      saveCardio();
-    } else if (e.target.id === 'delete-cardio-btn') {
+    if (e.target.id === 'save-activity-btn') {
+      saveActivity();
+    } else if (e.target.id === 'delete-activity-btn') {
       confirmModal({
-        title: 'Delete this cardio session?',
+        title: `Delete this ${meta.name.toLowerCase()} session?`,
         body: "This removes the logged activity and duration. This can't be undone.",
         confirmLabel: 'Delete',
         danger: true,
@@ -658,10 +720,10 @@ function renderCardioForm(sessionId) {
     }
   });
 
-  function saveCardio() {
-    const activity = formHost.querySelector('#cardio-activity').value;
-    const minutesRaw = formHost.querySelector('#cardio-minutes').value;
-    const notes = formHost.querySelector('#cardio-notes').value.trim();
+  function saveActivity() {
+    const activity = formHost.querySelector('#activity-option').value;
+    const minutesRaw = formHost.querySelector('#activity-minutes').value;
+    const notes = formHost.querySelector('#activity-notes').value.trim();
     const minutes = minutesRaw !== '' ? parseInt(minutesRaw, 10) : null;
 
     if (minutes === null || isNaN(minutes)) {
@@ -669,10 +731,10 @@ function renderCardioForm(sessionId) {
       return;
     }
 
-    const current = findCardioSessionByDate(state.date, null) || existing;
+    const current = findSessionByTypeAndDate(type, state.date, null) || existing;
     const session = {
       id: current ? current.id : uid(),
-      type: 'cardio',
+      type,
       date: state.date,
       activity,
       minutes,
@@ -680,7 +742,7 @@ function renderCardioForm(sessionId) {
       updatedAt: new Date().toISOString(),
     };
     upsertSession(session).catch(() => showToast('Could not save -- will retry when back online'));
-    showToast('Cardio saved');
+    showToast(`${meta.name} saved`);
     navigate('log');
   }
 
@@ -791,12 +853,12 @@ function renderHistoryList() {
   }
   const wrap = el('<div class="session-list"></div>');
   sessions.forEach((s) => {
-    const isCardio = s.type === 'cardio';
-    const day = isCardio ? null : dayById(s.dayId);
-    const color = isCardio ? CARDIO_META.color : day ? day.color : null;
-    const icon = isCardio ? CARDIO_META.icon : day ? day.icon : '🏋️';
-    const title = isCardio ? 'Cardio' : day ? day.name : 'Workout';
-    const meta = isCardio
+    const activityType = ACTIVITY_TYPES[s.type];
+    const day = activityType ? null : dayById(s.dayId);
+    const color = activityType ? activityType.meta.color : day ? day.color : null;
+    const icon = activityType ? activityType.meta.icon : day ? day.icon : '🏋️';
+    const title = activityType ? activityType.meta.name : day ? day.name : 'Workout';
+    const meta = activityType
       ? `${formatDate(s.date)} · ${s.activity} · ${s.minutes} min`
       : `${formatDate(s.date)} · ${Object.keys(s.entries || {}).length} exercises logged`;
 
@@ -817,7 +879,7 @@ function renderHistoryList() {
     row.appendChild(item);
 
     setupSwipeRow(item, {
-      onTap: () => navigate(isCardio ? `cardio/${s.id}` : `log/${s.dayId}/${s.id}`),
+      onTap: () => navigate(activityType ? `${s.type}/${s.id}` : `log/${s.dayId}/${s.id}`),
       onDelete: () => {
         row.querySelector('.session-delete-btn').addEventListener('click', () => {
           confirmModal({
@@ -840,7 +902,14 @@ function renderHistoryList() {
 }
 
 // ---------- Trends ----------
-const CARDIO_TREND_KEY = '__cardio__';
+function activityTrendKey(type) {
+  return `__${type}__`;
+}
+
+function trendKeyToActivityType(key) {
+  const m = /^__(.+)__$/.exec(key || '');
+  return m && ACTIVITY_TYPES[m[1]] ? m[1] : null;
+}
 
 function renderTrends(selectedExercise) {
   const wrap = el('<div></div>');
@@ -852,15 +921,20 @@ function renderTrends(selectedExercise) {
     return wrap;
   }
 
-  const current = selectedExercise && (selectedExercise === CARDIO_TREND_KEY || exIndex[selectedExercise]) ? selectedExercise : exNames[0];
-  const isCardio = current === CARDIO_TREND_KEY;
+  const current = selectedExercise && (trendKeyToActivityType(selectedExercise) || exIndex[selectedExercise]) ? selectedExercise : exNames[0];
+  const activityType = trendKeyToActivityType(current);
+  const isActivity = !!activityType;
 
   const selectEl = el('<select id="exercise-select"></select>');
-  const cardioGroup = el('<optgroup label="Cardio"></optgroup>');
-  const cardioOpt = el(`<option value="${CARDIO_TREND_KEY}">Total cardio minutes</option>`);
-  if (isCardio) cardioOpt.selected = true;
-  cardioGroup.appendChild(cardioOpt);
-  selectEl.appendChild(cardioGroup);
+  Object.keys(ACTIVITY_TYPES).forEach((type) => {
+    const { meta } = ACTIVITY_TYPES[type];
+    const key = activityTrendKey(type);
+    const group = el(`<optgroup label="${meta.name}"></optgroup>`);
+    const opt = el(`<option value="${key}">Total ${meta.name.toLowerCase()} minutes</option>`);
+    if (current === key) opt.selected = true;
+    group.appendChild(opt);
+    selectEl.appendChild(group);
+  });
   WORKOUT_PLAN.forEach((day) => {
     const group = el(`<optgroup label="${day.name}"></optgroup>`);
     day.exercises.forEach((ex) => {
@@ -873,12 +947,12 @@ function renderTrends(selectedExercise) {
   selectEl.addEventListener('change', (e) => navigate(`trends/${encodeURIComponent(e.target.value)}`));
   wrap.appendChild(selectEl);
 
-  const meta = isCardio ? { dayColor: CARDIO_META.color } : exIndex[current];
-  const isBodyweight = !isCardio && meta.unit === 'bodyweight';
+  const meta = isActivity ? { dayColor: ACTIVITY_TYPES[activityType].meta.color } : exIndex[current];
+  const isBodyweight = !isActivity && meta.unit === 'bodyweight';
 
   const points = [];
-  if (isCardio) {
-    getCardioSessions()
+  if (isActivity) {
+    getSessionsByType(activityType)
       .slice()
       .reverse()
       .forEach((s) => {
@@ -889,7 +963,7 @@ function renderTrends(selectedExercise) {
       .slice()
       .reverse()
       .forEach((s) => {
-        if (s.type === 'cardio') return;
+        if (ACTIVITY_TYPES[s.type]) return;
         const entry = s.entries[current];
         if (!entry) return;
         const validSets = entry.filter(Boolean);
@@ -908,11 +982,11 @@ function renderTrends(selectedExercise) {
   const chartWrap = el('<div class="chart-wrap"></div>');
 
   if (points.length === 0) {
-    chartWrap.appendChild(el(`<div class="chart-empty">No logged sets yet for ${isCardio ? 'cardio' : current}.</div>`));
+    chartWrap.appendChild(el(`<div class="chart-empty">No logged sets yet for ${isActivity ? ACTIVITY_TYPES[activityType].meta.name.toLowerCase() : current}.</div>`));
   } else {
-    const metricState = { key: isCardio || isBodyweight ? 'totalReps' : 'topWeight' };
+    const metricState = { key: isActivity || isBodyweight ? 'totalReps' : 'topWeight' };
 
-    if (!isCardio && !isBodyweight) {
+    if (!isActivity && !isBodyweight) {
       const toggle = el(`
         <div class="metric-toggle">
           <button data-key="topWeight" class="active">Top set weight</button>
@@ -938,8 +1012,8 @@ function renderTrends(selectedExercise) {
   wrap.appendChild(chartWrap);
 
   if (points.length > 0) {
-    const columnLabel = isCardio ? 'Minutes' : isBodyweight ? 'Total reps' : 'Top set';
-    const volumeLabel = isCardio ? '' : '<th>Volume</th>';
+    const columnLabel = isActivity ? 'Minutes' : isBodyweight ? 'Total reps' : 'Top set';
+    const volumeLabel = isActivity ? '' : '<th>Volume</th>';
     const table = el(`
       <table class="trend-table">
         <thead><tr><th>Date</th><th>${columnLabel}</th>${volumeLabel}</tr></thead>
@@ -951,8 +1025,8 @@ function renderTrends(selectedExercise) {
       .slice()
       .reverse()
       .forEach((p) => {
-        const topCell = isCardio ? `${p.totalReps} min` : isBodyweight ? `${p.totalReps} reps` : `${p.topWeight} lbs`;
-        const volumeCell = isCardio ? '' : `<td>${p.volume}</td>`;
+        const topCell = isActivity ? `${p.totalReps} min` : isBodyweight ? `${p.totalReps} reps` : `${p.topWeight} lbs`;
+        const volumeCell = isActivity ? '' : `<td>${p.volume}</td>`;
         tbody.appendChild(el(`<tr><td>${formatDateShort(p.date)}</td><td>${topCell}</td>${volumeCell}</tr>`));
       });
     wrap.appendChild(table);

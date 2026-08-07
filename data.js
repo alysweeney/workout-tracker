@@ -55,7 +55,17 @@ const CHEST_TRICEPS_COOLDOWN = {
 };
 
 const CARDIO_META = { id: 'cardio', name: 'Cardio', icon: '🍁', color: '#a0653a' };
-const CARDIO_ACTIVITIES = ['Incline Treadmill Walk', 'StairMaster', 'Spin Bike', 'Elliptical', 'Outdoor Run/Walk', 'Other'];
+const CARDIO_ACTIVITIES = ['Incline Treadmill Walk', 'StairMaster', 'Spin Bike', 'Elliptical', 'Swimming', 'Outdoor Run/Walk', 'Other'];
+
+const CLASS_META = { id: 'class', name: 'Class', icon: '🧘', color: '#6b4570' };
+const CLASS_TYPES = ['Lagree', 'Spin', 'Pilates', 'Yoga', 'Hot Yoga', 'Hot Pilates', 'Other'];
+
+// Config driving the two "simple" activity types (not the fixed 5-day lifting
+// plan): a single activity/type pick + duration + optional notes each.
+const ACTIVITY_TYPES = {
+  cardio: { meta: CARDIO_META, options: CARDIO_ACTIVITIES, optionLabel: 'Activity', saveLabel: 'Save Cardio' },
+  class: { meta: CLASS_META, options: CLASS_TYPES, optionLabel: 'Class type', saveLabel: 'Save Class' },
+};
 
 const WORKOUT_PLAN = [
   {
