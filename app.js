@@ -29,6 +29,14 @@ function dayById(dayId) {
   return WORKOUT_PLAN.find((d) => d.id === dayId);
 }
 
+// Links to a YouTube search rather than a specific video: exact video IDs
+// can't be verified from here and would risk linking to something wrong,
+// deleted, or unrelated. A search for the exercise name reliably surfaces
+// good form tutorials.
+function youtubeSearchUrl(exerciseName) {
+  return 'https://www.youtube.com/results?search_query=' + encodeURIComponent(exerciseName + ' exercise form tutorial');
+}
+
 function el(html) {
   const t = document.createElement('template');
   t.innerHTML = html.trim();
@@ -108,7 +116,7 @@ function getExerciseIndex() {
   const idx = {};
   WORKOUT_PLAN.forEach((day) => {
     day.exercises.forEach((ex) => {
-      idx[ex.name] = { dayId: day.id, dayName: day.name, unit: ex.unit, perSide: !!ex.perSide, target: `${ex.sets} x ${ex.reps}${ex.perSide ? ' each side' : ''}` };
+      idx[ex.name] = { dayId: day.id, dayName: day.name, dayColor: day.color, unit: ex.unit, perSide: !!ex.perSide, target: `${ex.sets} x ${ex.reps}${ex.perSide ? ' each side' : ''}` };
     });
   });
   return idx;
@@ -278,8 +286,9 @@ function renderLogHome() {
     const last = getLastSessionForDay(day.id);
     const lastText = last ? `Last logged ${formatDateShort(last.date)}` : 'Not logged yet';
     const card = el(`
-      <button class="day-card">
-        <div>
+      <button class="day-card" style="--day-color:${day.color}">
+        <div class="day-icon-badge">${day.icon}</div>
+        <div class="day-body">
           <h3>${day.name}</h3>
           <div class="meta">${day.exercises.length} exercises</div>
           <div class="last-logged">${lastText}</div>
@@ -301,7 +310,7 @@ function renderLogForm(dayId, sessionId) {
     return back;
   }
 
-  const wrap = el('<div></div>');
+  const wrap = el(`<div style="--day-color:${day.color}"></div>`);
   const backRow = el(`<div class="back-row"><button class="back-btn">‹ All days</button></div>`);
   backRow.querySelector('.back-btn').addEventListener('click', () => navigate('log'));
   wrap.appendChild(backRow);
@@ -341,6 +350,7 @@ function renderLogForm(dayId, sessionId) {
       card.appendChild(el(`
         <div class="exercise-header">
           <h3>${ex.name}</h3>
+          <a class="tutorial-link" href="${youtubeSearchUrl(ex.name)}" target="_blank" rel="noopener noreferrer">▶ Watch form</a>
         </div>
       `));
       card.appendChild(el(`<div class="exercise-target" style="margin-bottom:10px;">${targetLabel}</div>`));
@@ -482,15 +492,16 @@ function escapeHtml(str) {
 function renderHistoryList() {
   const sessions = getAllSessionsSorted();
   if (sessions.length === 0) {
-    return el('<div class="empty-state">No workouts logged yet.<br/>Head to the Log tab to record your first session.</div>');
+    return el('<div class="empty-state"><span class="empty-icon">📅</span>No workouts logged yet.<br/>Head to the Log tab to record your first session.</div>');
   }
   const wrap = el('<div class="session-list"></div>');
   sessions.forEach((s) => {
     const day = dayById(s.dayId);
     const exCount = Object.keys(s.entries).length;
     const item = el(`
-      <button class="session-item">
-        <div>
+      <button class="session-item"${day ? ` style="--day-color:${day.color}"` : ''}>
+        <div class="day-icon-badge">${day ? day.icon : '🏋️'}</div>
+        <div class="session-body">
           <h3>${day ? day.name : 'Workout'}</h3>
           <div class="meta">${formatDate(s.date)} · ${exCount} exercises logged</div>
         </div>
@@ -510,7 +521,7 @@ function renderTrends(selectedExercise) {
   const exNames = Object.keys(exIndex);
 
   if (getAllSessionsSorted().length === 0) {
-    wrap.appendChild(el('<div class="empty-state">Log a few workouts to start seeing trends here.</div>'));
+    wrap.appendChild(el('<div class="empty-state"><span class="empty-icon">📈</span>Log a few workouts to start seeing trends here.</div>'));
     return wrap;
   }
 
@@ -570,14 +581,14 @@ function renderTrends(selectedExercise) {
           metricState.key = btn.dataset.key;
           toggle.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === btn));
           svgHost.innerHTML = '';
-          svgHost.appendChild(buildChart(points, metricState.key, isBodyweight));
+          svgHost.appendChild(buildChart(points, metricState.key, isBodyweight, meta.dayColor));
         });
       });
       chartWrap.appendChild(toggle);
     }
 
     const svgHost = el('<div></div>');
-    svgHost.appendChild(buildChart(points, metricState.key, isBodyweight));
+    svgHost.appendChild(buildChart(points, metricState.key, isBodyweight, meta.dayColor));
     chartWrap.appendChild(svgHost);
   }
 
@@ -604,7 +615,8 @@ function renderTrends(selectedExercise) {
   return wrap;
 }
 
-function buildChart(points, metricKey, isBodyweight) {
+function buildChart(points, metricKey, isBodyweight, color) {
+  const lineColor = color || '#6d63f0';
   const w = 300;
   const h = 160;
   const padL = 34;
@@ -662,7 +674,7 @@ function buildChart(points, metricKey, isBodyweight) {
   const path = document.createElementNS(svgNS, 'path');
   path.setAttribute('d', pathD.trim());
   path.setAttribute('fill', 'none');
-  path.setAttribute('stroke', '#6d63f0');
+  path.setAttribute('stroke', lineColor);
   path.setAttribute('stroke-width', '2.5');
   path.setAttribute('stroke-linecap', 'round');
   path.setAttribute('stroke-linejoin', 'round');
@@ -673,7 +685,7 @@ function buildChart(points, metricKey, isBodyweight) {
     c.setAttribute('cx', d.x);
     c.setAttribute('cy', d.y);
     c.setAttribute('r', '3.2');
-    c.setAttribute('fill', '#6d63f0');
+    c.setAttribute('fill', lineColor);
     svg.appendChild(c);
 
     if (i === 0 || i === dots.length - 1 || dots.length <= 5) {

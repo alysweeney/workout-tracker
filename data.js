@@ -4,6 +4,8 @@ const WORKOUT_PLAN = [
   {
     id: 'back-biceps',
     name: 'Back / Biceps',
+    icon: '💪',
+    color: '#6d63f0',
     exercises: [
       { name: 'Lat Machine Wide Grip Pulldown', sets: 3, reps: 10, unit: 'lbs' },
       { name: 'Cable Seated Row', sets: 3, reps: 10, unit: 'lbs' },
@@ -19,6 +21,8 @@ const WORKOUT_PLAN = [
   {
     id: 'legs',
     name: 'Legs',
+    icon: '🦵',
+    color: '#16a34a',
     exercises: [
       { name: 'Dumbbell Squat', sets: 3, reps: 10, unit: 'lbs' },
       { name: 'Dumbbell Reverse Lunge', sets: 3, reps: 10, unit: 'lbs', perSide: true },
@@ -34,6 +38,8 @@ const WORKOUT_PLAN = [
   {
     id: 'shoulders-abs',
     name: 'Shoulders / Abs',
+    icon: '🎯',
+    color: '#d97706',
     exercises: [
       { name: 'Dumbbell Seated Shoulder Press', sets: 3, reps: 10, unit: 'lbs' },
       { name: 'Dumbbell Single Arm Lateral Raise', sets: 3, reps: 10, unit: 'lbs', perSide: true },
@@ -49,6 +55,8 @@ const WORKOUT_PLAN = [
   {
     id: 'chest-triceps',
     name: 'Chest / Triceps',
+    icon: '🔥',
+    color: '#e11d48',
     exercises: [
       { name: 'Dumbbell Bench Press', sets: 3, reps: 10, unit: 'lbs' },
       { name: 'Bench Dip', sets: 3, reps: 10, unit: 'bodyweight' },
@@ -63,6 +71,8 @@ const WORKOUT_PLAN = [
   {
     id: 'legs-optional',
     name: 'Legs (Optional)',
+    icon: '⭐',
+    color: '#0891b2',
     exercises: [
       { name: 'Dumbbell Front Squat', sets: 3, reps: 10, unit: 'lbs' },
       { name: 'Dumbbell Deadlift', sets: 3, reps: 10, unit: 'lbs' },
