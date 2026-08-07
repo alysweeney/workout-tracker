@@ -1,0 +1,77 @@
+// Fixed 5-day workout plan, transcribed from the user's Trainerize program.
+// Each exercise: { name, sets, reps, unit: 'lbs'|'bodyweight', perSide: bool }
+const WORKOUT_PLAN = [
+  {
+    id: 'back-biceps',
+    name: 'Back / Biceps',
+    exercises: [
+      { name: 'Lat Machine Wide Grip Pulldown', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Cable Seated Row', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Standing Row', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Bicep Curl', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Single Arm Bent Over Row', sets: 3, reps: 10, unit: 'lbs', perSide: true },
+      { name: 'Dumbbell Incline Rear Row', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Incline Bicep Curl', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Hyperextension Roman Chair', sets: 3, reps: 10, unit: 'bodyweight' },
+      { name: 'Superman', sets: 3, reps: 10, unit: 'bodyweight' },
+    ],
+  },
+  {
+    id: 'legs',
+    name: 'Legs',
+    exercises: [
+      { name: 'Dumbbell Squat', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Reverse Lunge', sets: 3, reps: 10, unit: 'lbs', perSide: true },
+      { name: 'Dumbbell Step Up', sets: 3, reps: 8, unit: 'lbs', perSide: true },
+      { name: 'Dumbbell Split Squat', sets: 3, reps: 8, unit: 'lbs', perSide: true },
+      { name: 'Side Lunge', sets: 3, reps: 10, unit: 'bodyweight', perSide: true },
+      { name: 'Dumbbell Glute Bridge Floor', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Fire Hydrant', sets: 3, reps: 10, unit: 'bodyweight', perSide: true },
+      { name: 'Machine Leg Press', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Leg Press Machine Calf Raise', sets: 3, reps: 10, unit: 'lbs' },
+    ],
+  },
+  {
+    id: 'shoulders-abs',
+    name: 'Shoulders / Abs',
+    exercises: [
+      { name: 'Dumbbell Seated Shoulder Press', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Single Arm Lateral Raise', sets: 3, reps: 10, unit: 'lbs', perSide: true },
+      { name: 'Dumbbell Front Raise', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell 90 Degree Lateral Raise', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Upright Row', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Machine Seated Shoulder Press', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Side Bend', sets: 3, reps: 10, unit: 'lbs', perSide: true },
+      { name: 'Toe Touch', sets: 3, reps: 10, unit: 'bodyweight' },
+      { name: 'V Up', sets: 3, reps: 10, unit: 'bodyweight' },
+    ],
+  },
+  {
+    id: 'chest-triceps',
+    name: 'Chest / Triceps',
+    exercises: [
+      { name: 'Dumbbell Bench Press', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Bench Dip', sets: 3, reps: 10, unit: 'bodyweight' },
+      { name: 'Dumbbell Pullover', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Tricep Kickback', sets: 3, reps: 10, unit: 'lbs', perSide: true },
+      { name: 'Dumbbell Incline Bench Chest Press', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Cable Straight Bar Tricep Pushdown', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Cable Single Arm Standing Fly', sets: 3, reps: 10, unit: 'lbs', perSide: true },
+      { name: 'Machine Seated Chest Fly', sets: 3, reps: 10, unit: 'lbs' },
+    ],
+  },
+  {
+    id: 'legs-optional',
+    name: 'Legs (Optional)',
+    exercises: [
+      { name: 'Dumbbell Front Squat', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Deadlift', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Forward Lunge', sets: 3, reps: 8, unit: 'lbs', perSide: true },
+      { name: 'Box Pistol Squat', sets: 3, reps: 8, unit: 'bodyweight', perSide: true },
+      { name: 'Dumbbell Walking Lunge', sets: 3, reps: 8, unit: 'lbs', perSide: true },
+      { name: 'Dumbbell Calf Raise', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Straight Leg Kickback', sets: 3, reps: 10, unit: 'bodyweight', perSide: true },
+      { name: 'Single Leg Glute Bridge', sets: 3, reps: 10, unit: 'bodyweight', perSide: true },
+    ],
+  },
+];
