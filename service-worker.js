@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-tracker-v2';
+const CACHE_NAME = 'workout-tracker-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -31,18 +31,19 @@ self.addEventListener('fetch', (event) => {
   // (auth, sync, SDK CDN) must go straight to the network unintercepted --
   // Firestore's live connections and offline queue manage themselves.
   if (new URL(event.request.url).origin !== self.location.origin) return;
+  // Network-first: whenever online, always serve the freshest deployed code
+  // and refresh the cache from it. Only fall back to the cache when the
+  // network fails, so offline use still works but a live connection never
+  // shows a stale version waiting on a second reload.
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const fetchPromise = fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return networkResponse;
-        })
-        .catch(() => cached);
-      return cached || fetchPromise;
-    })
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return networkResponse;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
