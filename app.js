@@ -555,7 +555,16 @@ function renderLogForm(dayId, sessionId) {
       const weightInput = row.querySelector('.weight-input');
       const repsInput = row.querySelector('.reps-input');
       const weight = weightInput ? parseFloat(weightInput.value) : null;
-      const reps = repsInput && repsInput.value !== '' ? parseInt(repsInput.value, 10) : null;
+      let reps = repsInput && repsInput.value !== '' ? parseInt(repsInput.value, 10) : null;
+      // Weight entered but reps left blank: assume the shown target/previous
+      // rep count (that's what the grey placeholder implies) rather than
+      // silently dropping reps. Only for weighted rows -- a bodyweight row's
+      // reps field is its only signal that the set was touched at all, so it
+      // still requires an explicit value.
+      if (weightInput && !isNaN(weight) && (reps === null || isNaN(reps)) && repsInput) {
+        const placeholderReps = parseInt(repsInput.placeholder, 10);
+        if (!isNaN(placeholderReps)) reps = placeholderReps;
+      }
       if ((weight !== null && !isNaN(weight)) || (reps !== null && !isNaN(reps))) {
         if (!rawEntries[exName]) rawEntries[exName] = [];
         rawEntries[exName][setIdx] = {
