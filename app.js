@@ -349,6 +349,42 @@ function toDateStr(d) {
   return new Date(d - tz).toISOString().slice(0, 10);
 }
 
+// ---------- Draft autosave (on-device only; cleared once a real save lands) ----------
+function draftKey(kind, id, date) {
+  return `workoutTrackerDraft:${kind}:${id}:${date}`;
+}
+
+function saveDraft(key, data) {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    // localStorage unavailable/full -- drafts are a convenience, not critical.
+  }
+}
+
+function loadDraft(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function clearDraft(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch (e) {}
+}
+
+function debounce(fn, ms) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+
 function computeActivityStats(sessions) {
   const today = new Date();
   const todayS = todayStr();
@@ -399,6 +435,71 @@ function renderStatsCard() {
 }
 
 // ---------- Log Form ----------
+function gatherLogFormState(formHost, day) {
+  const rawEntries = {};
+  formHost.querySelectorAll('.set-row').forEach((row) => {
+    const exName = row.dataset.exercise;
+    const setIdx = Number(row.dataset.set);
+    const weightInput = row.querySelector('.weight-input');
+    const repsInput = row.querySelector('.reps-input');
+    const weight = weightInput ? parseFloat(weightInput.value) : null;
+    let reps = repsInput && repsInput.value !== '' ? parseInt(repsInput.value, 10) : null;
+    // Weight entered but reps left blank: assume the shown target/previous
+    // rep count (that's what the grey placeholder implies) rather than
+    // silently dropping reps. Only for weighted rows -- a bodyweight row's
+    // reps field is its only signal that the set was touched at all, so it
+    // still requires an explicit value.
+    if (weightInput && !isNaN(weight) && (reps === null || isNaN(reps)) && repsInput) {
+      const placeholderReps = parseInt(repsInput.placeholder, 10);
+      if (!isNaN(placeholderReps)) reps = placeholderReps;
+    }
+    if ((weight !== null && !isNaN(weight)) || (reps !== null && !isNaN(reps))) {
+      if (!rawEntries[exName]) rawEntries[exName] = [];
+      rawEntries[exName][setIdx] = {
+        weight: weight !== null && !isNaN(weight) ? weight : null,
+        reps: reps !== null && !isNaN(reps) ? reps : null,
+      };
+    }
+  });
+
+  // Drop exercises with no sets filled in, and densify sparse arrays (e.g. only
+  // set 3 filled in) into explicit nulls -- Firestore rejects `undefined` values,
+  // and a hole reads back as undefined outside of hole-skipping array methods.
+  const entries = {};
+  Object.keys(rawEntries).forEach((k) => {
+    const sparse = rawEntries[k];
+    if (sparse.some((s) => s)) {
+      const dense = [];
+      for (let i = 0; i < sparse.length; i++) dense.push(sparse[i] || null);
+      entries[k] = dense;
+    }
+  });
+
+  const cardioDoneEl = formHost.querySelector('#warmup-cardio-done');
+  const cardioMinutesEl = formHost.querySelector('#warmup-cardio-minutes');
+  const cardioMinutesRaw = cardioMinutesEl ? cardioMinutesEl.value : '';
+  const stretches = {};
+  day.warmup.stretches.forEach((_, idx) => {
+    const cb = formHost.querySelector(`#warmup-stretch-${idx}`);
+    stretches[idx] = cb ? cb.checked : false;
+  });
+  const cooldownStretches = {};
+  day.cooldown.stretches.forEach((_, idx) => {
+    const cb = formHost.querySelector(`#cooldown-stretch-${idx}`);
+    cooldownStretches[idx] = cb ? cb.checked : false;
+  });
+
+  return {
+    entries,
+    warmup: {
+      cardioDone: cardioDoneEl ? cardioDoneEl.checked : false,
+      cardioMinutes: cardioMinutesRaw !== '' ? parseInt(cardioMinutesRaw, 10) : null,
+      stretches,
+    },
+    cooldown: { stretches: cooldownStretches },
+  };
+}
+
 function renderLogForm(dayId, sessionId) {
   const day = dayById(dayId);
   if (!day) {
@@ -419,10 +520,11 @@ function renderLogForm(dayId, sessionId) {
   const dateRow = el(`
     <div class="date-row">
       <input type="date" id="session-date" value="${state.date}" max="${todayStr()}" />
-      ${existing ? '<span class="pill">Editing saved workout</span>' : ''}
+      <span class="pill" id="session-pill" style="display:none;"></span>
     </div>
   `);
   wrap.appendChild(dateRow);
+  const pillEl = dateRow.querySelector('#session-pill');
 
   const formHost = el('<div></div>');
   wrap.appendChild(formHost);
@@ -439,8 +541,19 @@ function renderLogForm(dayId, sessionId) {
     const sessionForDate = findSessionByDayAndDate(dayId, date, null);
     const activeSession = sessionForDate || existing;
     const prevSession = getMostRecentSessionBefore(dayId, date, activeSession ? activeSession.id : null);
+    const draft = !activeSession ? loadDraft(draftKey('log', dayId, date)) : null;
 
-    const savedWarmup = (activeSession && activeSession.warmup) || {};
+    if (activeSession) {
+      pillEl.textContent = 'Editing saved workout';
+      pillEl.style.display = '';
+    } else if (draft) {
+      pillEl.textContent = 'Restored unsaved draft';
+      pillEl.style.display = '';
+    } else {
+      pillEl.style.display = 'none';
+    }
+
+    const savedWarmup = (activeSession && activeSession.warmup) || (draft && draft.warmup) || {};
     const warmupCard = el('<div class="card info-card"></div>');
     warmupCard.appendChild(el('<div class="info-card-title">🔥 Warm-up</div>'));
     warmupCard.appendChild(checklistItem(day.warmup.cardio, !!savedWarmup.cardioDone, 'warmup-cardio-done'));
@@ -456,6 +569,8 @@ function renderLogForm(dayId, sessionId) {
     });
     formHost.appendChild(warmupCard);
 
+    const prefillEntries = (activeSession && activeSession.entries) || (draft && draft.entries) || {};
+
     day.exercises.forEach((ex) => {
       const card = el('<div class="card exercise-card"></div>');
       const targetLabel = `${ex.sets} x ${ex.reps} reps${ex.perSide ? ' each side' : ''}${ex.unit === 'bodyweight' ? ' · bodyweight' : ''}`;
@@ -467,7 +582,7 @@ function renderLogForm(dayId, sessionId) {
       `));
       card.appendChild(el(`<div class="exercise-target" style="margin-bottom:10px;">${targetLabel}</div>`));
 
-      const savedEntry = activeSession && activeSession.entries[ex.name] ? activeSession.entries[ex.name] : null;
+      const savedEntry = prefillEntries[ex.name] || null;
       const prevEntry = prevSession && prevSession.entries[ex.name] ? prevSession.entries[ex.name] : null;
 
       for (let i = 0; i < ex.sets; i++) {
@@ -523,7 +638,7 @@ function renderLogForm(dayId, sessionId) {
       formHost.appendChild(card);
     });
 
-    const savedCooldown = (activeSession && activeSession.cooldown) || {};
+    const savedCooldown = (activeSession && activeSession.cooldown) || (draft && draft.cooldown) || {};
     const cooldownCard = el('<div class="card info-card"></div>');
     cooldownCard.appendChild(el('<div class="info-card-title">🧘 Cool-down</div>'));
     cooldownCard.appendChild(el(`<div class="exercise-target" style="margin:-4px 0 10px;">~5 min · targets ${day.cooldown.target}</div>`));
@@ -534,6 +649,21 @@ function renderLogForm(dayId, sessionId) {
     formHost.appendChild(cooldownCard);
 
     formHost.appendChild(saveBar);
+
+    // Debounced draft autosave: captures in-progress typing so it survives
+    // an accidental navigate-away or app close before "Save Workout" is hit.
+    const scheduleDraftSave = debounce(() => {
+      const draftState = gatherLogFormState(formHost, day);
+      const hasAnything =
+        Object.keys(draftState.entries).length > 0 ||
+        draftState.warmup.cardioDone ||
+        draftState.warmup.cardioMinutes != null ||
+        Object.values(draftState.warmup.stretches).some(Boolean) ||
+        Object.values(draftState.cooldown.stretches).some(Boolean);
+      if (hasAnything) saveDraft(draftKey('log', dayId, state.date), draftState);
+    }, 500);
+    formHost.addEventListener('input', scheduleDraftSave);
+    formHost.addEventListener('change', scheduleDraftSave);
   }
 
   buildForm(state.date);
@@ -557,6 +687,7 @@ function renderLogForm(dayId, sessionId) {
           // Don't await: Firestore applies this to the local cache instantly and
           // syncs in the background, so the UI shouldn't block waiting on the network.
           if (existing) deleteSession(existing.id).catch(() => showToast('Could not delete -- will retry when back online'));
+          clearDraft(draftKey('log', dayId, state.date));
           navigate('history');
           showToast('Session deleted');
         },
@@ -565,44 +696,7 @@ function renderLogForm(dayId, sessionId) {
   });
 
   function saveCurrentForm() {
-    const rawEntries = {};
-    formHost.querySelectorAll('.set-row').forEach((row) => {
-      const exName = row.dataset.exercise;
-      const setIdx = Number(row.dataset.set);
-      const weightInput = row.querySelector('.weight-input');
-      const repsInput = row.querySelector('.reps-input');
-      const weight = weightInput ? parseFloat(weightInput.value) : null;
-      let reps = repsInput && repsInput.value !== '' ? parseInt(repsInput.value, 10) : null;
-      // Weight entered but reps left blank: assume the shown target/previous
-      // rep count (that's what the grey placeholder implies) rather than
-      // silently dropping reps. Only for weighted rows -- a bodyweight row's
-      // reps field is its only signal that the set was touched at all, so it
-      // still requires an explicit value.
-      if (weightInput && !isNaN(weight) && (reps === null || isNaN(reps)) && repsInput) {
-        const placeholderReps = parseInt(repsInput.placeholder, 10);
-        if (!isNaN(placeholderReps)) reps = placeholderReps;
-      }
-      if ((weight !== null && !isNaN(weight)) || (reps !== null && !isNaN(reps))) {
-        if (!rawEntries[exName]) rawEntries[exName] = [];
-        rawEntries[exName][setIdx] = {
-          weight: weight !== null && !isNaN(weight) ? weight : null,
-          reps: reps !== null && !isNaN(reps) ? reps : null,
-        };
-      }
-    });
-
-    // Drop exercises with no sets filled in, and densify sparse arrays (e.g. only
-    // set 3 filled in) into explicit nulls -- Firestore rejects `undefined` values,
-    // and a hole reads back as undefined outside of hole-skipping array methods.
-    const entries = {};
-    Object.keys(rawEntries).forEach((k) => {
-      const sparse = rawEntries[k];
-      if (sparse.some((s) => s)) {
-        const dense = [];
-        for (let i = 0; i < sparse.length; i++) dense.push(sparse[i] || null);
-        entries[k] = dense;
-      }
-    });
+    const { entries, warmup, cooldown } = gatherLogFormState(formHost, day);
 
     const hasData = Object.keys(entries).length > 0;
     if (!hasData) {
@@ -610,37 +704,20 @@ function renderLogForm(dayId, sessionId) {
       return;
     }
 
-    const cardioDoneEl = formHost.querySelector('#warmup-cardio-done');
-    const cardioMinutesEl = formHost.querySelector('#warmup-cardio-minutes');
-    const cardioMinutesRaw = cardioMinutesEl ? cardioMinutesEl.value : '';
-    const stretches = {};
-    day.warmup.stretches.forEach((_, idx) => {
-      const cb = formHost.querySelector(`#warmup-stretch-${idx}`);
-      stretches[idx] = cb ? cb.checked : false;
-    });
-    const cooldownStretches = {};
-    day.cooldown.stretches.forEach((_, idx) => {
-      const cb = formHost.querySelector(`#cooldown-stretch-${idx}`);
-      cooldownStretches[idx] = cb ? cb.checked : false;
-    });
-
     const current = findSessionByDayAndDate(dayId, state.date, null) || existing;
     const session = {
       id: current ? current.id : uid(),
       dayId,
       date: state.date,
       entries,
-      warmup: {
-        cardioDone: cardioDoneEl ? cardioDoneEl.checked : false,
-        cardioMinutes: cardioMinutesRaw !== '' ? parseInt(cardioMinutesRaw, 10) : null,
-        stretches,
-      },
-      cooldown: { stretches: cooldownStretches },
+      warmup,
+      cooldown,
       updatedAt: new Date().toISOString(),
     };
     // Don't await: Firestore applies this to the local cache instantly and
     // syncs in the background, so the UI shouldn't block waiting on the network.
     upsertSession(session).catch(() => showToast('Could not save -- will retry when back online'));
+    clearDraft(draftKey('log', dayId, state.date));
     showToast('Workout saved');
     navigate('log');
   }
@@ -667,10 +744,11 @@ function renderActivityForm(type, sessionId) {
   const dateRow = el(`
     <div class="date-row">
       <input type="date" id="session-date" value="${state.date}" max="${todayStr()}" />
-      ${existing ? `<span class="pill">Editing saved ${meta.name.toLowerCase()}</span>` : ''}
+      <span class="pill" id="session-pill" style="display:none;"></span>
     </div>
   `);
   wrap.appendChild(dateRow);
+  const pillEl = dateRow.querySelector('#session-pill');
 
   const formHost = el('<div></div>');
   wrap.appendChild(formHost);
@@ -686,6 +764,18 @@ function renderActivityForm(type, sessionId) {
     formHost.innerHTML = '';
     const activeSession = findSessionByTypeAndDate(type, date, null) || existing;
     const prevSession = getSessionsByType(type).find((s) => s.date <= date && s.id !== (activeSession ? activeSession.id : null));
+    const draft = !activeSession ? loadDraft(draftKey(type, 'form', date)) : null;
+    const source = activeSession || draft;
+
+    if (activeSession) {
+      pillEl.textContent = `Editing saved ${meta.name.toLowerCase()}`;
+      pillEl.style.display = '';
+    } else if (draft) {
+      pillEl.textContent = 'Restored unsaved draft';
+      pillEl.style.display = '';
+    } else {
+      pillEl.style.display = 'none';
+    }
 
     const card = el('<div class="card"></div>');
 
@@ -693,7 +783,7 @@ function renderActivityForm(type, sessionId) {
     const activitySelect = el('<select id="activity-option"></select>');
     options.forEach((opt) => {
       const optEl = el(`<option value="${escapeAttr(opt)}">${opt}</option>`);
-      if (activeSession ? activeSession.activity === opt : opt === options[0]) optEl.selected = true;
+      if (source ? source.activity === opt : opt === options[0]) optEl.selected = true;
       activitySelect.appendChild(optEl);
     });
     activitySelect.style.marginBottom = '0';
@@ -703,7 +793,7 @@ function renderActivityForm(type, sessionId) {
     const minutesField = el(`
       <div class="field-group">
         <label>Duration</label>
-        <input type="number" inputmode="numeric" id="activity-minutes" placeholder="${prevSession ? prevSession.minutes + ' min' : 'e.g. 10'}" value="${activeSession ? activeSession.minutes : ''}" />
+        <input type="number" inputmode="numeric" id="activity-minutes" placeholder="${prevSession ? prevSession.minutes + ' min' : 'e.g. 10'}" value="${source && source.minutes != null ? source.minutes : ''}" />
       </div>
     `);
     card.appendChild(minutesField);
@@ -711,13 +801,27 @@ function renderActivityForm(type, sessionId) {
     const notesField = el(`
       <div class="field-group" style="margin-bottom:0;">
         <label>Notes (optional)</label>
-        <input type="text" id="activity-notes" placeholder="${type === 'class' ? 'studio, instructor...' : 'incline, speed, distance...'}" value="${activeSession && activeSession.notes ? escapeAttr(activeSession.notes) : ''}" />
+        <input type="text" id="activity-notes" placeholder="${type === 'class' ? 'studio, instructor...' : 'incline, speed, distance...'}" value="${source && source.notes ? escapeAttr(source.notes) : ''}" />
       </div>
     `);
     card.appendChild(notesField);
 
     formHost.appendChild(card);
     formHost.appendChild(saveBar);
+
+    const scheduleDraftSave = debounce(() => {
+      const activity = formHost.querySelector('#activity-option').value;
+      const minutesRaw = formHost.querySelector('#activity-minutes').value;
+      const notes = formHost.querySelector('#activity-notes').value.trim();
+      if (minutesRaw === '' && notes === '') return;
+      saveDraft(draftKey(type, 'form', state.date), {
+        activity,
+        minutes: minutesRaw !== '' ? parseInt(minutesRaw, 10) : null,
+        notes: notes || null,
+      });
+    }, 500);
+    formHost.addEventListener('input', scheduleDraftSave);
+    formHost.addEventListener('change', scheduleDraftSave);
   }
 
   buildForm(state.date);
@@ -739,6 +843,7 @@ function renderActivityForm(type, sessionId) {
         danger: true,
         onConfirm: () => {
           if (existing) deleteSession(existing.id).catch(() => showToast('Could not delete -- will retry when back online'));
+          clearDraft(draftKey(type, 'form', state.date));
           navigate('history');
           showToast('Session deleted');
         },
@@ -768,6 +873,7 @@ function renderActivityForm(type, sessionId) {
       updatedAt: new Date().toISOString(),
     };
     upsertSession(session).catch(() => showToast('Could not save -- will retry when back online'));
+    clearDraft(draftKey(type, 'form', state.date));
     showToast(`${meta.name} saved`);
     navigate('log');
   }
