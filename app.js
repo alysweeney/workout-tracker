@@ -499,6 +499,23 @@ function renderLogForm(dayId, sessionId) {
               </div>
             </div>
           `);
+          const weightInputEl = row.querySelector('.weight-input');
+          const repsInputEl = row.querySelector('.reps-input');
+          // Once weight is entered and focus leaves the row (not just moving
+          // into the reps box to type a real value), commit the shown
+          // placeholder reps as the actual value so it's visibly confirmed
+          // rather than an implication that only shows up after saving.
+          weightInputEl.addEventListener('blur', () => {
+            if (weightInputEl.value === '' || isNaN(parseFloat(weightInputEl.value))) return;
+            setTimeout(() => {
+              if (document.activeElement === repsInputEl) return;
+              if (repsInputEl.value === '') {
+                const placeholderReps = parseInt(repsInputEl.placeholder, 10);
+                if (!isNaN(placeholderReps)) repsInputEl.value = placeholderReps;
+              }
+            }, 0);
+          });
+          repsInputEl.addEventListener('focus', () => repsInputEl.select());
           card.appendChild(row);
         }
       }
