@@ -26,7 +26,30 @@ function formatDateShort(dateStr) {
 }
 
 function dayById(dayId) {
-  return WORKOUT_PLAN.find((d) => d.id === dayId);
+  return allDays().find((d) => d.id === dayId);
+}
+
+// Custom days are stored as special docs in the same Firestore sessions
+// collection (type: 'customDayDef') rather than a separate collection, so no
+// Firestore rules changes are needed -- they reuse the same per-user
+// read/write rule as everything else, and the generic save/delete cloud
+// functions work on them unchanged.
+function getCustomDays() {
+  return loadSessions()
+    .filter((s) => s.type === 'customDayDef')
+    .sort((a, b) => (a.name < b.name ? -1 : 1));
+}
+
+function allDays() {
+  return [...WORKOUT_PLAN, ...getCustomDays()];
+}
+
+async function upsertCustomDay(customDay) {
+  await Cloud.saveSessionCloud(currentUser.uid, customDay);
+}
+
+async function deleteCustomDay(id) {
+  await Cloud.deleteSessionCloud(currentUser.uid, id);
 }
 
 // Links to a YouTube search rather than a specific video: exact video IDs
@@ -108,7 +131,9 @@ function getMostRecentSessionBefore(dayId, date, excludeId) {
 }
 
 function getAllSessionsSorted() {
-  return loadSessions().sort((a, b) => (a.date < b.date ? 1 : -1));
+  return loadSessions()
+    .filter((s) => s.type !== 'customDayDef')
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
 function getSessionsByType(type) {
@@ -128,7 +153,7 @@ function getLastSessionByType(type) {
 function getExerciseIndex() {
   // { exerciseName: { dayId, dayName, unit, perSide } }
   const idx = {};
-  WORKOUT_PLAN.forEach((day) => {
+  allDays().forEach((day) => {
     day.exercises.forEach((ex) => {
       idx[ex.name] = { dayId: day.id, dayName: day.name, dayColor: day.color, unit: ex.unit, perSide: !!ex.perSide, target: `${ex.sets} x ${ex.reps}${ex.perSide ? ' each side' : ''}` };
     });
@@ -198,7 +223,7 @@ function render() {
 
   const { name, params } = getRoute();
   document.querySelectorAll('.nav-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.route === (name === 'log' || ACTIVITY_TYPES[name] ? 'log' : name));
+    btn.classList.toggle('active', btn.dataset.route === (name === 'log' || name === 'custom-day' || ACTIVITY_TYPES[name] ? 'log' : name));
   });
 
   const app = document.getElementById('app');
@@ -219,6 +244,10 @@ function render() {
   } else if (ACTIVITY_TYPES[name]) {
     title.textContent = ACTIVITY_TYPES[name].meta.name;
     app.appendChild(renderActivityForm(name, params[0] || null));
+  } else if (name === 'custom-day') {
+    const idParam = params[0] || 'new';
+    title.textContent = idParam === 'new' ? 'New Custom Day' : 'Edit Custom Day';
+    app.appendChild(renderCustomDayForm(idParam === 'new' ? null : idParam));
   } else if (name === 'trends') {
     title.textContent = 'Trends';
     app.appendChild(renderTrends(params[0] || null));
@@ -302,7 +331,7 @@ function renderLogHome() {
   outer.appendChild(renderStatsCard());
 
   const wrap = el('<div class="day-list"></div>');
-  WORKOUT_PLAN.forEach((day) => {
+  WORKOUT_PLAN.concat(getCustomDays()).forEach((day) => {
     const last = getLastSessionForDay(day.id);
     const lastText = last ? `Last logged ${formatDateShort(last.date)}` : 'Not logged yet';
     const card = el(`
@@ -319,6 +348,19 @@ function renderLogHome() {
     card.addEventListener('click', () => navigate(`log/${day.id}`));
     wrap.appendChild(card);
   });
+
+  const newCustomCard = el(`
+    <button class="day-card day-card-ghost">
+      <div class="day-icon-badge">➕</div>
+      <div class="day-body">
+        <h3>New Custom Day</h3>
+        <div class="meta">Build your own workout</div>
+      </div>
+      <div class="chevron">›</div>
+    </button>
+  `);
+  newCustomCard.addEventListener('click', () => navigate('custom-day/new'));
+  wrap.appendChild(newCustomCard);
 
   Object.keys(ACTIVITY_TYPES).forEach((type) => {
     const { meta } = ACTIVITY_TYPES[type];
@@ -508,8 +550,17 @@ function renderLogForm(dayId, sessionId) {
   }
 
   const wrap = el(`<div style="--day-color:${day.color}"></div>`);
-  const backRow = el(`<div class="back-row"><button class="back-btn">‹ All days</button></div>`);
+  const isCustomDay = day.id.startsWith('custom-');
+  const backRow = el(`
+    <div class="back-row">
+      <button class="back-btn">‹ All days</button>
+      ${isCustomDay ? '<button class="back-btn" id="edit-day-btn" style="margin-left:auto;">Edit day ✎</button>' : ''}
+    </div>
+  `);
   backRow.querySelector('.back-btn').addEventListener('click', () => navigate('log'));
+  if (isCustomDay) {
+    backRow.querySelector('#edit-day-btn').addEventListener('click', () => navigate(`custom-day/${day.id}`));
+  }
   wrap.appendChild(backRow);
 
   let existing = sessionId ? loadSessions().find((s) => s.id === sessionId) : null;
@@ -881,6 +932,169 @@ function renderActivityForm(type, sessionId) {
   return wrap;
 }
 
+// ---------- Custom Day Editor ----------
+function renderCustomDayForm(customDayId) {
+  const isNew = !customDayId;
+  const existingDay = isNew ? null : getCustomDays().find((d) => d.id === customDayId);
+  if (!isNew && !existingDay) {
+    return el('<div class="empty-state">Custom day not found.</div>');
+  }
+
+  const wrap = el('<div></div>');
+  const backRow = el('<div class="back-row"><button class="back-btn">‹ All days</button></div>');
+  backRow.querySelector('.back-btn').addEventListener('click', () => navigate('log'));
+  wrap.appendChild(backRow);
+
+  let selectedColor = existingDay ? existingDay.color : CUSTOM_DAY_COLOR_PRESETS[0];
+
+  const card = el('<div class="card"></div>');
+
+  card.appendChild(el(`
+    <div class="field-group">
+      <label>Day name</label>
+      <input type="text" id="custom-day-name" placeholder="e.g. Arm Day" value="${existingDay ? escapeAttr(existingDay.name) : ''}" />
+    </div>
+  `));
+
+  const iconField = el('<div class="field-group"><label>Icon</label></div>');
+  const iconInput = el(`<input type="text" id="custom-day-icon" maxlength="4" value="${existingDay ? existingDay.icon : CUSTOM_DAY_ICON_PRESETS[0]}" style="width:64px; text-align:center; font-size:20px; margin-bottom:8px;" />`);
+  iconField.appendChild(iconInput);
+  const iconPicker = el('<div class="preset-picker"></div>');
+  CUSTOM_DAY_ICON_PRESETS.forEach((ic) => {
+    const btn = el(`<button type="button" class="preset-swatch icon-swatch">${ic}</button>`);
+    btn.addEventListener('click', () => {
+      iconInput.value = ic;
+    });
+    iconPicker.appendChild(btn);
+  });
+  iconField.appendChild(iconPicker);
+  card.appendChild(iconField);
+
+  const colorField = el('<div class="field-group" style="margin-bottom:0;"><label>Color</label></div>');
+  const colorPicker = el('<div class="preset-picker"></div>');
+  CUSTOM_DAY_COLOR_PRESETS.forEach((c) => {
+    const btn = el(`<button type="button" class="preset-swatch color-swatch${c === selectedColor ? ' selected' : ''}" style="background:${c};"></button>`);
+    btn.addEventListener('click', () => {
+      selectedColor = c;
+      colorPicker.querySelectorAll('.color-swatch').forEach((b) => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+    colorPicker.appendChild(btn);
+  });
+  colorField.appendChild(colorPicker);
+  card.appendChild(colorField);
+
+  wrap.appendChild(card);
+
+  const exercisesCard = el('<div class="card" style="margin-top:12px;"></div>');
+  exercisesCard.appendChild(el('<div class="info-card-title">Exercises</div>'));
+  const exerciseList = el('<div id="custom-exercise-list"></div>');
+  exercisesCard.appendChild(exerciseList);
+
+  function addExerciseRow(ex) {
+    const row = el(`
+      <div class="custom-exercise-row">
+        <div class="custom-exercise-row-top">
+          <input type="text" class="ce-name" placeholder="Exercise name" value="${ex && ex.name ? escapeAttr(ex.name) : ''}" />
+          <button type="button" class="ce-remove" aria-label="Remove exercise">✕</button>
+        </div>
+        <div class="custom-exercise-row-fields">
+          <input type="number" inputmode="numeric" class="ce-sets" placeholder="Sets" value="${ex ? ex.sets : 3}" min="1" />
+          <input type="number" inputmode="numeric" class="ce-reps" placeholder="Reps" value="${ex ? ex.reps : 10}" min="1" />
+          <select class="ce-unit">
+            <option value="lbs"${!ex || ex.unit !== 'bodyweight' ? ' selected' : ''}>Weighted</option>
+            <option value="bodyweight"${ex && ex.unit === 'bodyweight' ? ' selected' : ''}>Bodyweight</option>
+          </select>
+        </div>
+        <label class="checklist-item" style="padding:6px 0; border-bottom:none;">
+          <input type="checkbox" class="ce-perside"${ex && ex.perSide ? ' checked' : ''} />
+          <span class="checklist-label">Each side</span>
+        </label>
+      </div>
+    `);
+    row.querySelector('.ce-remove').addEventListener('click', () => row.remove());
+    exerciseList.appendChild(row);
+  }
+
+  if (existingDay && existingDay.exercises.length) {
+    existingDay.exercises.forEach((ex) => addExerciseRow(ex));
+  } else {
+    addExerciseRow(null);
+  }
+
+  const addExerciseBtn = el('<button type="button" class="btn btn-secondary btn-block" style="margin-top:4px;">+ Add Exercise</button>');
+  addExerciseBtn.addEventListener('click', () => addExerciseRow(null));
+  exercisesCard.appendChild(addExerciseBtn);
+  wrap.appendChild(exercisesCard);
+
+  const saveBar = el(`
+    <div class="save-bar">
+      <button class="btn btn-primary btn-block" id="save-custom-day-btn">${isNew ? 'Create Day' : 'Save Changes'}</button>
+      ${!isNew ? '<button class="btn btn-danger btn-block" id="delete-custom-day-btn" style="margin-top:8px;">Delete this custom day</button>' : ''}
+    </div>
+  `);
+  wrap.appendChild(saveBar);
+
+  saveBar.querySelector('#save-custom-day-btn').addEventListener('click', () => {
+    const name = wrap.querySelector('#custom-day-name').value.trim();
+    if (!name) {
+      showToast('Give this day a name');
+      return;
+    }
+    const icon = iconInput.value.trim() || '🏋️';
+
+    const exercises = [];
+    exerciseList.querySelectorAll('.custom-exercise-row').forEach((row) => {
+      const exName = row.querySelector('.ce-name').value.trim();
+      if (!exName) return;
+      const sets = parseInt(row.querySelector('.ce-sets').value, 10) || 3;
+      const reps = parseInt(row.querySelector('.ce-reps').value, 10) || 10;
+      const unit = row.querySelector('.ce-unit').value;
+      const perSide = row.querySelector('.ce-perside').checked;
+      const exercise = { name: exName, sets, reps, unit };
+      if (perSide) exercise.perSide = true;
+      exercises.push(exercise);
+    });
+    if (exercises.length === 0) {
+      showToast('Add at least one exercise');
+      return;
+    }
+
+    const customDay = {
+      id: existingDay ? existingDay.id : `custom-${uid()}`,
+      type: 'customDayDef',
+      name,
+      icon,
+      color: selectedColor,
+      warmup: GENERIC_WARMUP,
+      cooldown: GENERIC_COOLDOWN,
+      exercises,
+      updatedAt: new Date().toISOString(),
+    };
+    upsertCustomDay(customDay).catch(() => showToast('Could not save -- will retry when back online'));
+    showToast(isNew ? 'Custom day created' : 'Custom day updated');
+    navigate('log');
+  });
+
+  if (!isNew) {
+    saveBar.querySelector('#delete-custom-day-btn').addEventListener('click', () => {
+      confirmModal({
+        title: 'Delete this custom day?',
+        body: 'This removes the day itself. Any workouts you already logged under it stay in your history, just without the day template attached.',
+        confirmLabel: 'Delete',
+        danger: true,
+        onConfirm: () => {
+          deleteCustomDay(existingDay.id).catch(() => showToast('Could not delete -- will retry when back online'));
+          navigate('log');
+          showToast('Custom day deleted');
+        },
+      });
+    });
+  }
+
+  return wrap;
+}
+
 function escapeAttr(str) {
   return str.replace(/"/g, '&quot;');
 }
@@ -1067,7 +1281,7 @@ function renderTrends(selectedExercise) {
     group.appendChild(opt);
     selectEl.appendChild(group);
   });
-  WORKOUT_PLAN.forEach((day) => {
+  allDays().forEach((day) => {
     const group = el(`<optgroup label="${day.name}"></optgroup>`);
     day.exercises.forEach((ex) => {
       const opt = el(`<option value="${escapeAttr(ex.name)}">${ex.name}</option>`);
@@ -1290,7 +1504,9 @@ function showToast(msg) {
 
 function openSettingsModal() {
   const root = document.getElementById('modal-root');
-  const sessions = getAllSessionsSorted();
+  // Unfiltered (not getAllSessionsSorted): backup/wipe need to include custom
+  // day templates too, not just logged sessions.
+  const sessions = loadSessions();
   const backdrop = el(`
     <div class="modal-backdrop">
       <div class="modal-sheet">

@@ -67,6 +67,30 @@ const ACTIVITY_TYPES = {
   class: { meta: CLASS_META, options: CLASS_TYPES, optionLabel: 'Class type', saveLabel: 'Save Class' },
 };
 
+// Every user-created custom day gets this same warm-up/cool-down automatically
+// (not authored per custom day) so the log form stays consistent without
+// making the "create a day" form ask for stretch routines too.
+const GENERIC_WARMUP = {
+  cardio: CARDIO_WARMUP_NOTE,
+  stretches: ['Arm circles — 2×10 each direction', 'Leg swings — 10 each direction per leg', 'Body weight squats — 2×10'],
+};
+const GENERIC_COOLDOWN = {
+  target: 'whatever you trained',
+  stretches: [
+    "Child's pose — 30 sec",
+    'Standing forward fold — 30 sec',
+    'Cross-body shoulder stretch — 20 sec each arm',
+    'Standing quad stretch — 20 sec each leg',
+  ],
+};
+
+// Quick-pick options for the custom day creator. Icons are drawn from the same
+// fall reference set used elsewhere, skipping ones already assigned to a
+// built-in day/activity. Colors stay in the same warm/muted family as the
+// built-in day colors but are new hues so custom days stay visually distinct.
+const CUSTOM_DAY_ICON_PRESETS = ['🍷', '🥾', '🌰', '🥧', '🍯', '🧺', '🧸', '🍪', '🦔', '🪵'];
+const CUSTOM_DAY_COLOR_PRESETS = ['#3d5a6c', '#a85a6b', '#4a6741', '#7a4a2b', '#8a6d3f', '#5c4a6b'];
+
 const WORKOUT_PLAN = [
   {
     id: 'back-biceps',

@@ -233,6 +233,114 @@ h3 { font-family: var(--font-display); font-size: 17px; margin: 0 0 4px; font-we
   .day-card:hover { box-shadow: var(--shadow-md); border-color: color-mix(in srgb, var(--day-color, var(--accent)) 35%, var(--border)); }
 }
 
+.day-card-ghost {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.day-card-ghost .day-icon-badge {
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.day-card-ghost h3,
+.day-card-ghost .meta {
+  color: var(--muted);
+}
+
+.preset-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.preset-swatch {
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  padding: 0;
+}
+
+.preset-swatch.icon-swatch {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preset-swatch.color-swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+}
+
+.preset-swatch.color-swatch.selected {
+  border-color: var(--text);
+}
+
+.custom-exercise-row {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 0;
+}
+
+.custom-exercise-row:first-child { padding-top: 0; }
+.custom-exercise-row:last-of-type { border-bottom: none; }
+
+.custom-exercise-row-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.custom-exercise-row-top .ce-name {
+  flex: 1;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 9px 10px;
+  font-size: 15px;
+  font-family: inherit;
+}
+
+.ce-remove {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: var(--bg);
+  color: var(--danger);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.custom-exercise-row-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.3fr;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.custom-exercise-row-fields input,
+.custom-exercise-row-fields select {
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  width: 100%;
+}
+
 .day-icon-badge {
   flex: none;
   width: 46px;
