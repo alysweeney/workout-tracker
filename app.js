@@ -164,7 +164,7 @@ function getExerciseIndex() {
 // ---------- Router ----------
 function getRoute() {
   const hash = window.location.hash.replace(/^#\/?/, '');
-  const parts = hash.split('/').filter(Boolean);
+  const parts = hash.split('/').filter(Boolean).map(decodeURIComponent);
   return { name: parts[0] || 'log', params: parts.slice(1) };
 }
 
