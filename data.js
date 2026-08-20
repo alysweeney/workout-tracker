@@ -91,38 +91,6 @@ const GENERIC_COOLDOWN = {
 const CUSTOM_DAY_ICON_PRESETS = ['🍷', '🥾', '🌰', '🥧', '🍯', '🧺', '🧸', '🍪', '🦔', '🪵'];
 const CUSTOM_DAY_COLOR_PRESETS = ['#3d5a6c', '#a85a6b', '#4a6741', '#7a4a2b', '#8a6d3f', '#5c4a6b'];
 
-// Searchable suggestions for the Custom Day exercise name field — mostly gym
-// machines that aren't already covered by the fixed 5-day plan, so repeated
-// use groups consistently in Trends instead of relying on free-typed spelling.
-const EXERCISE_NAME_PRESETS = [
-  'Adductor Machine',
-  'Abductor Machine',
-  'Glute Master',
-  'Hack Squat Machine',
-  'Leg Press Machine',
-  'Leg Extension Machine',
-  'Seated Leg Curl Machine',
-  'Lying Leg Curl Machine',
-  'Hip Thrust Machine',
-  'Glute Kickback Machine',
-  'Calf Raise Machine',
-  'Smith Machine Squat',
-  'Chest Press Machine',
-  'Pec Deck / Chest Fly Machine',
-  'Shoulder Press Machine',
-  'Lat Pulldown Machine',
-  'Seated Row Machine',
-  'Assisted Pull-Up Machine',
-  'Assisted Dip Machine',
-  'Preacher Curl Machine',
-  'Tricep Extension Machine',
-  'Ab Crunch Machine',
-  'Torso Rotation Machine',
-  'Cable Crossover',
-  'Cable Kickback',
-  'Cable Woodchopper',
-];
-
 const WORKOUT_PLAN = [
   {
     id: 'back-biceps',
@@ -218,3 +186,85 @@ const WORKOUT_PLAN = [
     ],
   },
 ];
+
+// Extra searchable suggestions for the Custom Day exercise name field,
+// covering equipment types the fixed 5-day plan doesn't already have an
+// exercise for. Merged below with every exercise name already used in
+// WORKOUT_PLAN so the full history (built-in days + custom days) groups
+// under one consistent name in Trends.
+const EXTRA_EXERCISE_NAME_PRESETS = [
+  // Barbell
+  'Barbell Back Squat',
+  'Barbell Front Squat',
+  'Barbell Deadlift',
+  'Barbell Romanian Deadlift',
+  'Barbell Bench Press',
+  'Barbell Incline Bench Press',
+  'Barbell Overhead Press',
+  'Barbell Row',
+  'Barbell Hip Thrust',
+  'Barbell Lunge',
+  'Barbell Good Morning',
+  'Barbell Bicep Curl',
+  'Barbell Shrug',
+  // Dumbbell (beyond what's already in the fixed plan)
+  'Dumbbell Goblet Squat',
+  'Dumbbell Romanian Deadlift',
+  'Dumbbell Chest Fly',
+  'Dumbbell Skull Crusher',
+  'Dumbbell Hammer Curl',
+  'Dumbbell Concentration Curl',
+  'Dumbbell Renegade Row',
+  'Dumbbell Thruster',
+  'Dumbbell Lateral Lunge',
+  'Dumbbell Arnold Press',
+  // Cable
+  'Cable Squat',
+  'Cable Deadlift',
+  'Cable Chest Press',
+  'Cable Face Pull',
+  'Cable Bicep Curl',
+  'Cable Glute Kickback',
+  'Cable Tricep Rope Pushdown',
+  'Cable Crossover',
+  'Cable Woodchopper',
+  // Bodyweight
+  'Push Up',
+  'Pull Up',
+  'Chin Up',
+  'Tricep Dip',
+  'Plank',
+  'Mountain Climber',
+  'Burpee',
+  'Jump Squat',
+  'Sit Up',
+  'Bicycle Crunch',
+  // Machine
+  'Adductor Machine',
+  'Abductor Machine',
+  'Glute Master',
+  'Hack Squat Machine',
+  'Leg Press Machine',
+  'Leg Extension Machine',
+  'Seated Leg Curl Machine',
+  'Lying Leg Curl Machine',
+  'Hip Thrust Machine',
+  'Glute Kickback Machine',
+  'Calf Raise Machine',
+  'Smith Machine Squat',
+  'Chest Press Machine',
+  'Pec Deck / Chest Fly Machine',
+  'Shoulder Press Machine',
+  'Lat Pulldown Machine',
+  'Seated Row Machine',
+  'Assisted Pull-Up Machine',
+  'Assisted Dip Machine',
+  'Preacher Curl Machine',
+  'Tricep Extension Machine',
+  'Ab Crunch Machine',
+  'Torso Rotation Machine',
+];
+
+const EXERCISE_NAME_PRESETS = Array.from(
+  new Set([...WORKOUT_PLAN.flatMap((day) => day.exercises.map((ex) => ex.name)), ...EXTRA_EXERCISE_NAME_PRESETS])
+).sort((a, b) => a.localeCompare(b));
