@@ -255,14 +255,18 @@ const EXTRA_EXERCISE_NAME_PRESETS = [
   'Chest Press Machine',
   'Pec Deck / Chest Fly Machine',
   'Shoulder Press Machine',
+  'Rear Delt Fly Machine',
   'Lat Pulldown Machine',
   'Seated Row Machine',
   'Assisted Pull-Up Machine',
   'Assisted Dip Machine',
+  'Bicep Curl Machine',
   'Preacher Curl Machine',
   'Tricep Extension Machine',
   'Ab Crunch Machine',
   'Torso Rotation Machine',
+  'Multi-Hip Machine',
+  'Reverse Hyperextension Machine',
 ];
 
 const EXERCISE_NAME_PRESETS = Array.from(
