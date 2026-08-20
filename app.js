@@ -991,11 +991,17 @@ function renderCustomDayForm(customDayId) {
   const exerciseList = el('<div id="custom-exercise-list"></div>');
   exercisesCard.appendChild(exerciseList);
 
+  const nameDatalist = el('<datalist id="exercise-name-presets"></datalist>');
+  EXERCISE_NAME_PRESETS.forEach((name) => {
+    nameDatalist.appendChild(el(`<option value="${escapeAttr(name)}"></option>`));
+  });
+  wrap.appendChild(nameDatalist);
+
   function addExerciseRow(ex) {
     const row = el(`
       <div class="custom-exercise-row">
         <div class="custom-exercise-row-top">
-          <input type="text" class="ce-name" placeholder="Exercise name" value="${ex && ex.name ? escapeAttr(ex.name) : ''}" />
+          <input type="text" class="ce-name" list="exercise-name-presets" placeholder="Exercise name — search or type your own" value="${ex && ex.name ? escapeAttr(ex.name) : ''}" />
           <button type="button" class="ce-remove" aria-label="Remove exercise">✕</button>
         </div>
         <div class="custom-exercise-row-fields">

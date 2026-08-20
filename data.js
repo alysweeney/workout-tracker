@@ -91,6 +91,38 @@ const GENERIC_COOLDOWN = {
 const CUSTOM_DAY_ICON_PRESETS = ['🍷', '🥾', '🌰', '🥧', '🍯', '🧺', '🧸', '🍪', '🦔', '🪵'];
 const CUSTOM_DAY_COLOR_PRESETS = ['#3d5a6c', '#a85a6b', '#4a6741', '#7a4a2b', '#8a6d3f', '#5c4a6b'];
 
+// Searchable suggestions for the Custom Day exercise name field — mostly gym
+// machines that aren't already covered by the fixed 5-day plan, so repeated
+// use groups consistently in Trends instead of relying on free-typed spelling.
+const EXERCISE_NAME_PRESETS = [
+  'Adductor Machine',
+  'Abductor Machine',
+  'Glute Master',
+  'Hack Squat Machine',
+  'Leg Press Machine',
+  'Leg Extension Machine',
+  'Seated Leg Curl Machine',
+  'Lying Leg Curl Machine',
+  'Hip Thrust Machine',
+  'Glute Kickback Machine',
+  'Calf Raise Machine',
+  'Smith Machine Squat',
+  'Chest Press Machine',
+  'Pec Deck / Chest Fly Machine',
+  'Shoulder Press Machine',
+  'Lat Pulldown Machine',
+  'Seated Row Machine',
+  'Assisted Pull-Up Machine',
+  'Assisted Dip Machine',
+  'Preacher Curl Machine',
+  'Tricep Extension Machine',
+  'Ab Crunch Machine',
+  'Torso Rotation Machine',
+  'Cable Crossover',
+  'Cable Kickback',
+  'Cable Woodchopper',
+];
+
 const WORKOUT_PLAN = [
   {
     id: 'back-biceps',
