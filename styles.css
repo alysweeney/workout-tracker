@@ -32,6 +32,36 @@
   }
 }
 
+:root[data-theme="holiday"] {
+  --bg: #f6f1e7;
+  --surface: #fffcf5;
+  --text: #2b2117;
+  --muted: #8a7d6a;
+  --border: #e6ddc9;
+  --accent: #b7342f;
+  --accent-2: #2f6b4a;
+  --accent-text: #fffaf3;
+  --danger: #8a2d35;
+  --success: #3f7a52;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="holiday"] {
+    --bg: #171c17;
+    --surface: #212821;
+    --text: #f0e9da;
+    --muted: #a7a194;
+    --border: #384036;
+    --accent: #e2645c;
+    --accent-2: #6fae84;
+    --accent-text: #171c17;
+    --danger: #d9686a;
+    --success: #6fae84;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 8px 20px -6px rgba(0, 0, 0, 0.55), 0 2px 8px -2px rgba(0, 0, 0, 0.45);
+  }
+}
+
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 html, body {

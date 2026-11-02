@@ -54,10 +54,10 @@ const CHEST_TRICEPS_COOLDOWN = {
   ],
 };
 
-const CARDIO_META = { id: 'cardio', name: 'Cardio', icon: '🍁', color: '#a0653a' };
+const CARDIO_META = { id: 'cardio', name: 'Cardio', icon: '🍁', color: '#a0653a', holidayIcon: '🦌', holidayColor: '#a8463a' };
 const CARDIO_ACTIVITIES = ['Incline Treadmill Walk', 'StairMaster', 'Spin Bike', 'Elliptical', 'Swimming', 'Outdoor Run/Walk', 'Other'];
 
-const CLASS_META = { id: 'class', name: 'Class', icon: '🧘', color: '#6b4570' };
+const CLASS_META = { id: 'class', name: 'Class', icon: '🧘', color: '#6b4570', holidayIcon: '🎄', holidayColor: '#3f7a52' };
 const CLASS_TYPES = ['Lagree', 'Spin', 'Pilates', 'Yoga', 'Hot Yoga', 'Hot Pilates', 'Other'];
 
 // Config driving the two "simple" activity types (not the fixed 5-day lifting
@@ -91,12 +91,19 @@ const GENERIC_COOLDOWN = {
 const CUSTOM_DAY_ICON_PRESETS = ['🍷', '🥾', '🌰', '🥧', '🍯', '🧺', '🧸', '🍪', '🦔', '🪵'];
 const CUSTOM_DAY_COLOR_PRESETS = ['#3d5a6c', '#a85a6b', '#4a6741', '#7a4a2b', '#8a6d3f', '#5c4a6b'];
 
+// Same custom-day presets, swapped in when the Holiday theme is active, so
+// a day created in December still gets on-theme suggestions.
+const CUSTOM_DAY_ICON_PRESETS_HOLIDAY = ['🎄', '🎁', '⛄', '❄️', '🦌', '🧦', '🍪', '🕯️', '🔔', '🧣'];
+const CUSTOM_DAY_COLOR_PRESETS_HOLIDAY = ['#b7342f', '#2f6b4a', '#a8822f', '#8c2f3a', '#3d6b7a', '#5c4a6b'];
+
 const WORKOUT_PLAN = [
   {
     id: 'back-biceps',
     name: 'Back / Biceps',
     icon: '🧣',
     color: '#8c3a4a',
+    holidayIcon: '🧦',
+    holidayColor: '#b7342f',
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: UPPER_BODY_WARMUP_STRETCHES },
     cooldown: BACK_BICEPS_COOLDOWN,
     exercises: [
@@ -116,6 +123,8 @@ const WORKOUT_PLAN = [
     name: 'Legs',
     icon: '🎃',
     color: '#6b7d4f',
+    holidayIcon: '⛄',
+    holidayColor: '#2f6b4a',
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: LEG_WARMUP_STRETCHES },
     cooldown: LEGS_COOLDOWN,
     exercises: [
@@ -135,6 +144,8 @@ const WORKOUT_PLAN = [
     name: 'Shoulders / Abs',
     icon: '☕',
     color: '#d2691e',
+    holidayIcon: '🍪',
+    holidayColor: '#a8822f',
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: UPPER_BODY_WARMUP_STRETCHES },
     cooldown: SHOULDERS_ABS_COOLDOWN,
     exercises: [
@@ -154,6 +165,8 @@ const WORKOUT_PLAN = [
     name: 'Chest / Triceps',
     icon: '🧶',
     color: '#b5482f',
+    holidayIcon: '🎁',
+    holidayColor: '#8c2f3a',
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: UPPER_BODY_WARMUP_STRETCHES },
     cooldown: CHEST_TRICEPS_COOLDOWN,
     exercises: [
@@ -172,6 +185,8 @@ const WORKOUT_PLAN = [
     name: 'Legs (Optional)',
     icon: '🍂',
     color: '#c48a1f',
+    holidayIcon: '❄️',
+    holidayColor: '#3d6b7a',
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: LEG_WARMUP_STRETCHES },
     cooldown: LEGS_COOLDOWN,
     exercises: [

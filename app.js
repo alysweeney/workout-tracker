@@ -66,6 +66,34 @@ function el(html) {
   return t.content.firstElementChild;
 }
 
+// ---------- Theme (fall / holiday) ----------
+// A per-device display preference, not synced to the account -- same reasoning
+// as the local draft autosave: purely cosmetic, no need to round-trip through
+// Firestore. The <head> inline script in index.html applies it before first
+// paint to avoid a flash of the wrong theme.
+function getAppTheme() {
+  try {
+    return localStorage.getItem('workoutTrackerAppTheme') === 'holiday' ? 'holiday' : 'fall';
+  } catch (e) {
+    return 'fall';
+  }
+}
+function setAppTheme(theme) {
+  try {
+    localStorage.setItem('workoutTrackerAppTheme', theme);
+  } catch (e) {}
+  document.documentElement.setAttribute('data-theme', theme);
+}
+// Built-in days/activity types carry a holidayIcon/holidayColor alongside
+// their default (fall) icon/color; custom days don't, so these fall back to
+// the object's own chosen icon/color untouched.
+function themedIcon(obj) {
+  return getAppTheme() === 'holiday' && obj.holidayIcon ? obj.holidayIcon : obj.icon;
+}
+function themedColor(obj) {
+  return getAppTheme() === 'holiday' && obj.holidayColor ? obj.holidayColor : obj.color;
+}
+
 // ---------- Storage (Firestore-backed, live cache kept in sync via onSnapshot) ----------
 let currentUser = null;
 let sessionsCache = [];
@@ -155,7 +183,7 @@ function getExerciseIndex() {
   const idx = {};
   allDays().forEach((day) => {
     day.exercises.forEach((ex) => {
-      idx[ex.name] = { dayId: day.id, dayName: day.name, dayColor: day.color, unit: ex.unit, perSide: !!ex.perSide, target: `${ex.sets} x ${ex.reps}${ex.perSide ? ' each side' : ''}` };
+      idx[ex.name] = { dayId: day.id, dayName: day.name, dayColor: themedColor(day), unit: ex.unit, perSide: !!ex.perSide, target: `${ex.sets} x ${ex.reps}${ex.perSide ? ' each side' : ''}` };
     });
   });
   return idx;
@@ -335,8 +363,8 @@ function renderLogHome() {
     const last = getLastSessionForDay(day.id);
     const lastText = last ? `Last logged ${formatDateShort(last.date)}` : 'Not logged yet';
     const card = el(`
-      <button class="day-card" style="--day-color:${day.color}">
-        <div class="day-icon-badge">${day.icon}</div>
+      <button class="day-card" style="--day-color:${themedColor(day)}">
+        <div class="day-icon-badge">${themedIcon(day)}</div>
         <div class="day-body">
           <h3>${day.name}</h3>
           <div class="meta">${day.exercises.length} exercises</div>
@@ -369,8 +397,8 @@ function renderLogHome() {
       ? `Last logged ${formatDateShort(last.date)} · ${last.activity} · ${last.minutes} min`
       : `Any day -- log ${meta.name.toLowerCase()} separately from your lifting days`;
     const card = el(`
-      <button class="day-card" style="--day-color:${meta.color}">
-        <div class="day-icon-badge">${meta.icon}</div>
+      <button class="day-card" style="--day-color:${themedColor(meta)}">
+        <div class="day-icon-badge">${themedIcon(meta)}</div>
         <div class="day-body">
           <h3>${meta.name}</h3>
           <div class="last-logged">${lastText}</div>
@@ -549,7 +577,7 @@ function renderLogForm(dayId, sessionId) {
     return back;
   }
 
-  const wrap = el(`<div style="--day-color:${day.color}"></div>`);
+  const wrap = el(`<div style="--day-color:${themedColor(day)}"></div>`);
   const isCustomDay = day.id.startsWith('custom-');
   const backRow = el(`
     <div class="back-row">
@@ -779,7 +807,7 @@ function renderLogForm(dayId, sessionId) {
 // ---------- Cardio Form ----------
 function renderActivityForm(type, sessionId) {
   const { meta, options, optionLabel, saveLabel } = ACTIVITY_TYPES[type];
-  const wrap = el(`<div style="--day-color:${meta.color}"></div>`);
+  const wrap = el(`<div style="--day-color:${themedColor(meta)}"></div>`);
   const backRow = el(`<div class="back-row"><button class="back-btn">‹ All days</button></div>`);
   backRow.querySelector('.back-btn').addEventListener('click', () => navigate('log'));
   wrap.appendChild(backRow);
@@ -945,7 +973,9 @@ function renderCustomDayForm(customDayId) {
   backRow.querySelector('.back-btn').addEventListener('click', () => navigate('log'));
   wrap.appendChild(backRow);
 
-  let selectedColor = existingDay ? existingDay.color : CUSTOM_DAY_COLOR_PRESETS[0];
+  const iconPresets = getAppTheme() === 'holiday' ? CUSTOM_DAY_ICON_PRESETS_HOLIDAY : CUSTOM_DAY_ICON_PRESETS;
+  const colorPresets = getAppTheme() === 'holiday' ? CUSTOM_DAY_COLOR_PRESETS_HOLIDAY : CUSTOM_DAY_COLOR_PRESETS;
+  let selectedColor = existingDay ? existingDay.color : colorPresets[0];
 
   const card = el('<div class="card"></div>');
 
@@ -957,10 +987,10 @@ function renderCustomDayForm(customDayId) {
   `));
 
   const iconField = el('<div class="field-group"><label>Icon</label></div>');
-  const iconInput = el(`<input type="text" id="custom-day-icon" maxlength="4" value="${existingDay ? existingDay.icon : CUSTOM_DAY_ICON_PRESETS[0]}" style="width:64px; text-align:center; font-size:20px; margin-bottom:8px;" />`);
+  const iconInput = el(`<input type="text" id="custom-day-icon" maxlength="4" value="${existingDay ? existingDay.icon : iconPresets[0]}" style="width:64px; text-align:center; font-size:20px; margin-bottom:8px;" />`);
   iconField.appendChild(iconInput);
   const iconPicker = el('<div class="preset-picker"></div>');
-  CUSTOM_DAY_ICON_PRESETS.forEach((ic) => {
+  iconPresets.forEach((ic) => {
     const btn = el(`<button type="button" class="preset-swatch icon-swatch">${ic}</button>`);
     btn.addEventListener('click', () => {
       iconInput.value = ic;
@@ -972,7 +1002,7 @@ function renderCustomDayForm(customDayId) {
 
   const colorField = el('<div class="field-group" style="margin-bottom:0;"><label>Color</label></div>');
   const colorPicker = el('<div class="preset-picker"></div>');
-  CUSTOM_DAY_COLOR_PRESETS.forEach((c) => {
+  colorPresets.forEach((c) => {
     const btn = el(`<button type="button" class="preset-swatch color-swatch${c === selectedColor ? ' selected' : ''}" style="background:${c};"></button>`);
     btn.addEventListener('click', () => {
       selectedColor = c;
@@ -1249,8 +1279,8 @@ function renderHistoryList() {
   sessions.forEach((s) => {
     const activityType = ACTIVITY_TYPES[s.type];
     const day = activityType ? null : dayById(s.dayId);
-    const color = activityType ? activityType.meta.color : day ? day.color : null;
-    const icon = activityType ? activityType.meta.icon : day ? day.icon : '🏋️';
+    const color = activityType ? themedColor(activityType.meta) : day ? themedColor(day) : null;
+    const icon = activityType ? themedIcon(activityType.meta) : day ? themedIcon(day) : '🏋️';
     const title = activityType ? activityType.meta.name : day ? day.name : 'Workout';
     const meta = activityType
       ? `${formatDate(s.date)} · ${s.activity} · ${s.minutes} min`
@@ -1341,7 +1371,7 @@ function renderTrends(selectedExercise) {
   selectEl.addEventListener('change', (e) => navigate(`trends/${encodeURIComponent(e.target.value)}`));
   wrap.appendChild(selectEl);
 
-  const meta = isActivity ? { dayColor: ACTIVITY_TYPES[activityType].meta.color } : exIndex[current];
+  const meta = isActivity ? { dayColor: themedColor(ACTIVITY_TYPES[activityType].meta) } : exIndex[current];
   const isBodyweight = !isActivity && meta.unit === 'bodyweight';
 
   const points = [];
@@ -1560,6 +1590,13 @@ function openSettingsModal() {
       <div class="modal-sheet">
         <h3>Account & Backup</h3>
         <p>Signed in as ${escapeHtml(currentUser.email || '')}. Your workouts sync automatically across any device you sign into.</p>
+        <div class="field-group" style="margin-bottom:18px;">
+          <label>Theme</label>
+          <div class="metric-toggle" id="theme-toggle">
+            <button type="button" data-theme="fall" class="${getAppTheme() === 'holiday' ? '' : 'active'}">🍂 Fall</button>
+            <button type="button" data-theme="holiday" class="${getAppTheme() === 'holiday' ? 'active' : ''}">🎄 Holiday</button>
+          </div>
+        </div>
         <div class="modal-actions">
           <button class="btn btn-primary" id="export-btn">Export backup (${sessions.length} sessions)</button>
           <label class="btn btn-secondary" for="import-file" style="text-align:center;">Import backup</label>
@@ -1575,6 +1612,15 @@ function openSettingsModal() {
     if (e.target === backdrop) root.innerHTML = '';
   });
   backdrop.querySelector('#modal-close').addEventListener('click', () => (root.innerHTML = ''));
+
+  backdrop.querySelectorAll('#theme-toggle button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (getAppTheme() === btn.dataset.theme) return;
+      setAppTheme(btn.dataset.theme);
+      backdrop.querySelectorAll('#theme-toggle button').forEach((b) => b.classList.toggle('active', b === btn));
+      render();
+    });
+  });
 
   backdrop.querySelector('#export-btn').addEventListener('click', () => {
     const data = JSON.stringify({ exportedAt: new Date().toISOString(), sessions }, null, 2);
