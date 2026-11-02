@@ -298,8 +298,13 @@ h3 { font-family: var(--font-display); font-size: 17px; margin: 0 0 4px; font-we
   margin-bottom: 8px;
 }
 
-.custom-exercise-row-top .ce-name {
+.custom-exercise-row-top .ce-name-wrap {
   flex: 1;
+  position: relative;
+}
+
+.custom-exercise-row-top .ce-name {
+  width: 100%;
   border: 1.5px solid var(--border);
   background: var(--bg);
   color: var(--text);
@@ -307,6 +312,65 @@ h3 { font-family: var(--font-display); font-size: 17px; margin: 0 0 4px; font-we
   padding: 9px 10px;
   font-size: 15px;
   font-family: inherit;
+}
+
+.ce-suggestions {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 20;
+}
+
+.ce-suggestions.open {
+  display: block;
+}
+
+.ce-suggestion {
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+
+.ce-suggestion:last-child {
+  border-bottom: none;
+}
+
+.ce-suggestion:hover,
+.ce-suggestion:active {
+  background: var(--bg);
+}
+
+.ce-start-weight-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ce-start-weight-row input {
+  flex: 1;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.ce-start-weight-row span {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .ce-remove {

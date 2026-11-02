@@ -656,7 +656,7 @@ function renderLogForm(dayId, sessionId) {
             <div class="set-row" data-exercise="${escapeAttr(ex.name)}" data-set="${i}">
               <div class="set-label">Set ${i + 1}</div>
               <div class="input-wrap">
-                <input type="number" inputmode="decimal" step="0.5" class="weight-input" placeholder="${prevSet ? prevSet.weight + ' lbs' : 'lbs'}" value="${savedSet ? savedSet.weight : ''}" />
+                <input type="number" inputmode="decimal" step="0.5" class="weight-input" placeholder="${prevSet ? prevSet.weight + ' lbs' : ex.startWeight != null ? ex.startWeight + ' lbs' : 'lbs'}" value="${savedSet ? savedSet.weight : ''}" />
                 <span>lbs</span>
               </div>
               <div class="input-wrap">
@@ -991,17 +991,15 @@ function renderCustomDayForm(customDayId) {
   const exerciseList = el('<div id="custom-exercise-list"></div>');
   exercisesCard.appendChild(exerciseList);
 
-  const nameDatalist = el('<datalist id="exercise-name-presets"></datalist>');
-  EXERCISE_NAME_PRESETS.forEach((name) => {
-    nameDatalist.appendChild(el(`<option value="${escapeAttr(name)}"></option>`));
-  });
-  wrap.appendChild(nameDatalist);
-
   function addExerciseRow(ex) {
+    const isBodyweight = ex && ex.unit === 'bodyweight';
     const row = el(`
       <div class="custom-exercise-row">
         <div class="custom-exercise-row-top">
-          <input type="text" class="ce-name" list="exercise-name-presets" placeholder="Exercise name — search or type your own" value="${ex && ex.name ? escapeAttr(ex.name) : ''}" />
+          <div class="ce-name-wrap">
+            <input type="text" class="ce-name" autocomplete="off" placeholder="Exercise name — search or type your own" value="${ex && ex.name ? escapeAttr(ex.name) : ''}" />
+            <div class="ce-suggestions"></div>
+          </div>
           <button type="button" class="ce-remove" aria-label="Remove exercise">✕</button>
         </div>
         <div class="custom-exercise-row-fields">
@@ -1012,6 +1010,10 @@ function renderCustomDayForm(customDayId) {
             <option value="bodyweight"${ex && ex.unit === 'bodyweight' ? ' selected' : ''}>Bodyweight</option>
           </select>
         </div>
+        <div class="ce-start-weight-row" style="${isBodyweight ? 'display:none;' : ''}">
+          <input type="number" inputmode="decimal" step="0.5" class="ce-start-weight" placeholder="Starting weight (optional)" value="${ex && ex.startWeight != null ? ex.startWeight : ''}" />
+          <span>lbs</span>
+        </div>
         <label class="checklist-item" style="padding:6px 0; border-bottom:none;">
           <input type="checkbox" class="ce-perside"${ex && ex.perSide ? ' checked' : ''} />
           <span class="checklist-label">Each side</span>
@@ -1019,6 +1021,42 @@ function renderCustomDayForm(customDayId) {
       </div>
     `);
     row.querySelector('.ce-remove').addEventListener('click', () => row.remove());
+
+    const unitSelect = row.querySelector('.ce-unit');
+    const startWeightRow = row.querySelector('.ce-start-weight-row');
+    unitSelect.addEventListener('change', () => {
+      startWeightRow.style.display = unitSelect.value === 'bodyweight' ? 'none' : '';
+    });
+
+    // Custom searchable suggestion list -- native <datalist> renders as
+    // QuickType suggestions above the keyboard on iOS Safari instead of an
+    // actual visible dropdown, so this is a hand-built one that behaves the
+    // same way everywhere.
+    const nameInput = row.querySelector('.ce-name');
+    const suggestionsBox = row.querySelector('.ce-suggestions');
+    function renderSuggestions(query) {
+      const q = query.trim().toLowerCase();
+      const matches = (q ? EXERCISE_NAME_PRESETS.filter((n) => n.toLowerCase().includes(q)) : EXERCISE_NAME_PRESETS).slice(0, 8);
+      suggestionsBox.innerHTML = '';
+      if (matches.length === 0) {
+        suggestionsBox.classList.remove('open');
+        return;
+      }
+      matches.forEach((name) => {
+        const item = el(`<div class="ce-suggestion">${name}</div>`);
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          nameInput.value = name;
+          suggestionsBox.classList.remove('open');
+        });
+        suggestionsBox.appendChild(item);
+      });
+      suggestionsBox.classList.add('open');
+    }
+    nameInput.addEventListener('focus', () => renderSuggestions(nameInput.value));
+    nameInput.addEventListener('input', () => renderSuggestions(nameInput.value));
+    nameInput.addEventListener('blur', () => suggestionsBox.classList.remove('open'));
+
     exerciseList.appendChild(row);
   }
 
@@ -1059,6 +1097,10 @@ function renderCustomDayForm(customDayId) {
       const perSide = row.querySelector('.ce-perside').checked;
       const exercise = { name: exName, sets, reps, unit };
       if (perSide) exercise.perSide = true;
+      if (unit !== 'bodyweight') {
+        const startWeight = parseFloat(row.querySelector('.ce-start-weight').value);
+        if (!isNaN(startWeight)) exercise.startWeight = startWeight;
+      }
       exercises.push(exercise);
     });
     if (exercises.length === 0) {
