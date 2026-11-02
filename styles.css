@@ -33,11 +33,11 @@
 }
 
 :root[data-theme="holiday"] {
-  --bg: #f6f1e7;
-  --surface: #fffcf5;
-  --text: #2b2117;
-  --muted: #8a7d6a;
-  --border: #e6ddc9;
+  --bg: #e9f0e4;
+  --surface: #f8fbf5;
+  --text: #22281f;
+  --muted: #7e8a73;
+  --border: #d7e0cf;
   --accent: #b7342f;
   --accent-2: #2f6b4a;
   --accent-text: #fffaf3;
