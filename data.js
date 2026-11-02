@@ -103,7 +103,7 @@ const WORKOUT_PLAN = [
     icon: '🧣',
     color: '#8c3a4a',
     holidayIcon: '🧦',
-    holidayColor: '#b7342f',
+    holidayColor: '#c0203d',
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: UPPER_BODY_WARMUP_STRETCHES },
     cooldown: BACK_BICEPS_COOLDOWN,
     exercises: [
