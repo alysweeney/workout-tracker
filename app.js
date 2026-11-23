@@ -178,12 +178,44 @@ function getLastSessionByType(type) {
   return getSessionsByType(type)[0] || null;
 }
 
+// ---------- Equipment switch (Dumbbell / Barbell) for bilateral core lifts ----------
+// A per-device preference, same reasoning as theme/drafts: which equipment you
+// used last isn't something that needs to round-trip through the account.
+// Dumbbell weight is tracked per-hand; Barbell weight is the total bar load,
+// so the two are kept as entirely separate exercise entries/trend lines
+// rather than mixed on one scale -- switching just changes which of the two
+// names a session's sets get saved under.
+function barbellVariantName(baseName) {
+  return baseName.replace(/^Dumbbell /, 'Barbell ');
+}
+function getExerciseEquipment(baseName) {
+  try {
+    return localStorage.getItem('workoutTrackerEquipment:' + baseName) === 'barbell' ? 'barbell' : 'dumbbell';
+  } catch (e) {
+    return 'dumbbell';
+  }
+}
+function setExerciseEquipment(baseName, equipment) {
+  try {
+    localStorage.setItem('workoutTrackerEquipment:' + baseName, equipment);
+  } catch (e) {}
+}
+function effectiveExerciseName(ex) {
+  if (!ex.equipmentSwitchable) return ex.name;
+  return getExerciseEquipment(ex.name) === 'barbell' ? barbellVariantName(ex.name) : ex.name;
+}
+function exerciseNameVariants(ex) {
+  return ex.equipmentSwitchable ? [ex.name, barbellVariantName(ex.name)] : [ex.name];
+}
+
 function getExerciseIndex() {
   // { exerciseName: { dayId, dayName, unit, perSide } }
   const idx = {};
   allDays().forEach((day) => {
     day.exercises.forEach((ex) => {
-      idx[ex.name] = { dayId: day.id, dayName: day.name, dayColor: themedColor(day), unit: ex.unit, perSide: !!ex.perSide, target: `${ex.sets} x ${ex.reps}${ex.perSide ? ' each side' : ''}` };
+      exerciseNameVariants(ex).forEach((name) => {
+        idx[name] = { dayId: day.id, dayName: day.name, dayColor: themedColor(day), unit: ex.unit, perSide: !!ex.perSide, target: `${ex.sets} x ${ex.reps}${ex.perSide ? ' each side' : ''}` };
+      });
     });
   });
   return idx;
@@ -650,19 +682,53 @@ function renderLogForm(dayId, sessionId) {
 
     const prefillEntries = (activeSession && activeSession.entries) || (draft && draft.entries) || {};
 
+    // Used both by the debounced autosave below and by the equipment toggle,
+    // which needs to commit whatever's currently typed *immediately* (not
+    // wait out the debounce) before it rebuilds the form under a new
+    // exercise name -- otherwise a quick type-then-switch loses that set.
+    function flushDraftNow() {
+      const draftState = gatherLogFormState(formHost, day);
+      const hasAnything =
+        Object.keys(draftState.entries).length > 0 ||
+        draftState.warmup.cardioDone ||
+        draftState.warmup.cardioMinutes != null ||
+        Object.values(draftState.warmup.stretches).some(Boolean) ||
+        Object.values(draftState.cooldown.stretches).some(Boolean);
+      if (hasAnything) saveDraft(draftKey('log', dayId, state.date), draftState);
+    }
+
     day.exercises.forEach((ex) => {
+      const equip = ex.equipmentSwitchable ? getExerciseEquipment(ex.name) : null;
+      const effName = ex.equipmentSwitchable ? (equip === 'barbell' ? barbellVariantName(ex.name) : ex.name) : ex.name;
       const card = el('<div class="card exercise-card"></div>');
-      const targetLabel = `${ex.sets} x ${ex.reps} reps${ex.perSide ? ' each side' : ''}${ex.unit === 'bodyweight' ? ' · bodyweight' : ''}`;
+      const targetLabel = `${ex.sets} x ${ex.reps} reps${ex.perSide ? ' each side' : ''}${ex.unit === 'bodyweight' ? ' · bodyweight' : ''}${ex.equipmentSwitchable ? (equip === 'barbell' ? ' · total bar weight' : ' · per dumbbell') : ''}`;
       card.appendChild(el(`
         <div class="exercise-header">
-          <h3>${ex.name}</h3>
-          <a class="tutorial-link" href="${youtubeSearchUrl(ex.name)}" target="_blank" rel="noopener noreferrer">▶ Watch form</a>
+          <h3>${effName}</h3>
+          <a class="tutorial-link" href="${youtubeSearchUrl(effName)}" target="_blank" rel="noopener noreferrer">▶ Watch form</a>
         </div>
       `));
+      if (ex.equipmentSwitchable) {
+        const equipToggle = el(`
+          <div class="metric-toggle" style="margin-bottom:8px;">
+            <button type="button" data-equipment="dumbbell" class="${equip === 'dumbbell' ? 'active' : ''}">Dumbbell</button>
+            <button type="button" data-equipment="barbell" class="${equip === 'barbell' ? 'active' : ''}">Barbell</button>
+          </div>
+        `);
+        equipToggle.querySelectorAll('button').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            if (getExerciseEquipment(ex.name) === btn.dataset.equipment) return;
+            flushDraftNow();
+            setExerciseEquipment(ex.name, btn.dataset.equipment);
+            buildForm(state.date);
+          });
+        });
+        card.appendChild(equipToggle);
+      }
       card.appendChild(el(`<div class="exercise-target" style="margin-bottom:10px;">${targetLabel}</div>`));
 
-      const savedEntry = prefillEntries[ex.name] || null;
-      const prevEntry = prevSession && prevSession.entries[ex.name] ? prevSession.entries[ex.name] : null;
+      const savedEntry = prefillEntries[effName] || null;
+      const prevEntry = prevSession && prevSession.entries[effName] ? prevSession.entries[effName] : null;
 
       for (let i = 0; i < ex.sets; i++) {
         const savedSet = savedEntry && savedEntry[i] ? savedEntry[i] : null;
@@ -670,7 +736,7 @@ function renderLogForm(dayId, sessionId) {
 
         if (ex.unit === 'bodyweight') {
           const row = el(`
-            <div class="set-row bodyweight" data-exercise="${escapeAttr(ex.name)}" data-set="${i}">
+            <div class="set-row bodyweight" data-exercise="${escapeAttr(effName)}" data-set="${i}">
               <div class="set-label">Set ${i + 1}</div>
               <div class="input-wrap">
                 <input type="number" inputmode="numeric" class="reps-input" placeholder="${prevSet ? prevSet.reps : ex.reps}" value="${savedSet ? savedSet.reps : ''}" />
@@ -681,7 +747,7 @@ function renderLogForm(dayId, sessionId) {
           card.appendChild(row);
         } else {
           const row = el(`
-            <div class="set-row" data-exercise="${escapeAttr(ex.name)}" data-set="${i}">
+            <div class="set-row" data-exercise="${escapeAttr(effName)}" data-set="${i}">
               <div class="set-label">Set ${i + 1}</div>
               <div class="input-wrap">
                 <input type="number" inputmode="decimal" step="0.5" class="weight-input" placeholder="${prevSet ? prevSet.weight + ' lbs' : ex.startWeight != null ? ex.startWeight + ' lbs' : 'lbs'}" value="${savedSet ? savedSet.weight : ''}" />
@@ -731,16 +797,7 @@ function renderLogForm(dayId, sessionId) {
 
     // Debounced draft autosave: captures in-progress typing so it survives
     // an accidental navigate-away or app close before "Save Workout" is hit.
-    const scheduleDraftSave = debounce(() => {
-      const draftState = gatherLogFormState(formHost, day);
-      const hasAnything =
-        Object.keys(draftState.entries).length > 0 ||
-        draftState.warmup.cardioDone ||
-        draftState.warmup.cardioMinutes != null ||
-        Object.values(draftState.warmup.stretches).some(Boolean) ||
-        Object.values(draftState.cooldown.stretches).some(Boolean);
-      if (hasAnything) saveDraft(draftKey('log', dayId, state.date), draftState);
-    }, 500);
+    const scheduleDraftSave = debounce(flushDraftNow, 500);
     formHost.addEventListener('input', scheduleDraftSave);
     formHost.addEventListener('change', scheduleDraftSave);
   }
@@ -777,13 +834,25 @@ function renderLogForm(dayId, sessionId) {
   function saveCurrentForm() {
     const { entries, warmup, cooldown } = gatherLogFormState(formHost, day);
 
+    // Equipment-switchable exercises only render one name (Dumbbell/Barbell)
+    // at a time, so gatherLogFormState above only sees whichever is
+    // currently on screen. Carry forward anything already known for the
+    // *other*, currently hidden, variant so switching equipment right before
+    // saving can't silently drop it.
+    const current = findSessionByDayAndDate(dayId, state.date, null) || existing;
+    const draftForDate = !current ? loadDraft(draftKey('log', dayId, state.date)) : null;
+    const knownEntries = (current && current.entries) || (draftForDate && draftForDate.entries) || {};
+    const renderedNames = new Set(Array.from(formHost.querySelectorAll('.set-row')).map((r) => r.dataset.exercise));
+    Object.keys(knownEntries).forEach((name) => {
+      if (!renderedNames.has(name) && !(name in entries)) entries[name] = knownEntries[name];
+    });
+
     const hasData = Object.keys(entries).length > 0;
     if (!hasData) {
       showToast('Enter at least one set before saving');
       return;
     }
 
-    const current = findSessionByDayAndDate(dayId, state.date, null) || existing;
     const session = {
       id: current ? current.id : uid(),
       dayId,
@@ -1362,9 +1431,11 @@ function renderTrends(selectedExercise) {
   allDays().forEach((day) => {
     const group = el(`<optgroup label="${day.name}"></optgroup>`);
     day.exercises.forEach((ex) => {
-      const opt = el(`<option value="${escapeAttr(ex.name)}">${ex.name}</option>`);
-      if (ex.name === current) opt.selected = true;
-      group.appendChild(opt);
+      exerciseNameVariants(ex).forEach((name) => {
+        const opt = el(`<option value="${escapeAttr(name)}">${name}</option>`);
+        if (name === current) opt.selected = true;
+        group.appendChild(opt);
+      });
     });
     selectEl.appendChild(group);
   });

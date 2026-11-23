@@ -109,7 +109,7 @@ const WORKOUT_PLAN = [
     exercises: [
       { name: 'Lat Machine Wide Grip Pulldown', sets: 3, reps: 10, unit: 'lbs' },
       { name: 'Cable Seated Row', sets: 3, reps: 10, unit: 'lbs' },
-      { name: 'Dumbbell Standing Row', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Standing Row', sets: 3, reps: 10, unit: 'lbs', equipmentSwitchable: true },
       { name: 'Dumbbell Bicep Curl', sets: 3, reps: 10, unit: 'lbs' },
       { name: 'Dumbbell Single Arm Bent Over Row', sets: 3, reps: 10, unit: 'lbs', perSide: true },
       { name: 'Dumbbell Incline Rear Row', sets: 3, reps: 10, unit: 'lbs' },
@@ -128,7 +128,7 @@ const WORKOUT_PLAN = [
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: LEG_WARMUP_STRETCHES },
     cooldown: LEGS_COOLDOWN,
     exercises: [
-      { name: 'Dumbbell Squat', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Squat', sets: 3, reps: 10, unit: 'lbs', equipmentSwitchable: true },
       { name: 'Dumbbell Reverse Lunge', sets: 3, reps: 10, unit: 'lbs', perSide: true },
       { name: 'Dumbbell Step Up', sets: 3, reps: 8, unit: 'lbs', perSide: true },
       { name: 'Dumbbell Split Squat', sets: 3, reps: 8, unit: 'lbs', perSide: true },
@@ -149,7 +149,7 @@ const WORKOUT_PLAN = [
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: UPPER_BODY_WARMUP_STRETCHES },
     cooldown: SHOULDERS_ABS_COOLDOWN,
     exercises: [
-      { name: 'Dumbbell Seated Shoulder Press', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Seated Shoulder Press', sets: 3, reps: 10, unit: 'lbs', equipmentSwitchable: true },
       { name: 'Dumbbell Single Arm Lateral Raise', sets: 3, reps: 10, unit: 'lbs', perSide: true },
       { name: 'Dumbbell Front Raise', sets: 3, reps: 10, unit: 'lbs' },
       { name: 'Dumbbell 90 Degree Lateral Raise', sets: 3, reps: 10, unit: 'lbs' },
@@ -170,11 +170,11 @@ const WORKOUT_PLAN = [
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: UPPER_BODY_WARMUP_STRETCHES },
     cooldown: CHEST_TRICEPS_COOLDOWN,
     exercises: [
-      { name: 'Dumbbell Bench Press', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Bench Press', sets: 3, reps: 10, unit: 'lbs', equipmentSwitchable: true },
       { name: 'Bench Dip', sets: 3, reps: 10, unit: 'bodyweight' },
       { name: 'Dumbbell Pullover', sets: 3, reps: 10, unit: 'lbs' },
       { name: 'Dumbbell Tricep Kickback', sets: 3, reps: 10, unit: 'lbs', perSide: true },
-      { name: 'Dumbbell Incline Bench Chest Press', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Incline Bench Chest Press', sets: 3, reps: 10, unit: 'lbs', equipmentSwitchable: true },
       { name: 'Cable Straight Bar Tricep Pushdown', sets: 3, reps: 10, unit: 'lbs' },
       { name: 'Cable Single Arm Standing Fly', sets: 3, reps: 10, unit: 'lbs', perSide: true },
       { name: 'Machine Seated Chest Fly', sets: 3, reps: 10, unit: 'lbs' },
@@ -190,8 +190,8 @@ const WORKOUT_PLAN = [
     warmup: { cardio: CARDIO_WARMUP_NOTE, stretches: LEG_WARMUP_STRETCHES },
     cooldown: LEGS_COOLDOWN,
     exercises: [
-      { name: 'Dumbbell Front Squat', sets: 3, reps: 10, unit: 'lbs' },
-      { name: 'Dumbbell Deadlift', sets: 3, reps: 10, unit: 'lbs' },
+      { name: 'Dumbbell Front Squat', sets: 3, reps: 10, unit: 'lbs', equipmentSwitchable: true },
+      { name: 'Dumbbell Deadlift', sets: 3, reps: 10, unit: 'lbs', equipmentSwitchable: true },
       { name: 'Dumbbell Forward Lunge', sets: 3, reps: 8, unit: 'lbs', perSide: true },
       { name: 'Box Pistol Squat', sets: 3, reps: 8, unit: 'bodyweight', perSide: true },
       { name: 'Dumbbell Walking Lunge', sets: 3, reps: 8, unit: 'lbs', perSide: true },
