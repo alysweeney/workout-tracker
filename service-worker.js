@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-tracker-v3';
+const CACHE_NAME = 'workout-tracker-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -34,9 +34,13 @@ self.addEventListener('fetch', (event) => {
   // Network-first: whenever online, always serve the freshest deployed code
   // and refresh the cache from it. Only fall back to the cache when the
   // network fails, so offline use still works but a live connection never
-  // shows a stale version waiting on a second reload.
+  // shows a stale version waiting on a second reload. cache: 'no-store'
+  // bypasses the browser's own HTTP cache -- without it, a plain fetch()
+  // can be satisfied from GitHub Pages' CDN cache headers and never reach
+  // the network at all, defeating the whole point of this being
+  // network-first.
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-store' })
       .then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200) {
           const clone = networkResponse.clone();
